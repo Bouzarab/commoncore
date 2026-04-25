@@ -112,7 +112,7 @@ img { display: block; max-width: 100%; }
 }
 
 /* ─── Screens ─────────────────────────────────────────────────────────────── */
-.screen { display: none; }
+.screen:not(.active) { display: none !important; }
 .screen.active { display: block; }
 
 /* ─── Layout ──────────────────────────────────────────────────────────────── */
