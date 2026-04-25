@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student - 1st Bac Exam Live</title>
+  <link rel="stylesheet" href="/exam1bac.css">
+</head>
+<body>
+  <main class="app-shell student">
+    <header class="topbar">
+      <div class="brand">
+        <h1>1st Bac Exam Live</h1>
+        <p id="student-subtitle">Student page</p>
+      </div>
+    </header>
+
+    <section class="screen active join-box" id="screen-join">
+      <div class="panel">
+        <h2 class="panel-title">Join the quiz</h2>
+        <p class="muted">Enter your name exactly as your teacher should see it.</p>
+        <form class="join-form" id="join-form">
+          <input class="name-input" id="student-name" type="text" maxlength="40" autocomplete="name" placeholder="Full name">
+          <button class="btn primary" type="submit">Join</button>
+          <div class="error-text" id="join-error"></div>
+        </form>
+        <p class="small-text">Leaving the page or attempting a screenshot removes you from the quiz with your score so far.</p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-waiting">
+      <div class="panel">
+        <h2 class="panel-title">You are in</h2>
+        <p class="muted" id="waiting-name">Waiting for the teacher to start.</p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-question">
+      <div class="score-bar">
+        <span id="score-name">Student</span>
+        <strong>Score: <span id="score-value">0</span></strong>
+      </div>
+      <div class="panel question-card">
+        <div class="question-head">
+          <div class="question-meta">
+            <span class="tag" id="question-number">Question 1 of 24</span>
+            <span class="tag" id="question-section">Section</span>
+            <span class="tag" id="question-points">10 points</span>
+          </div>
+          <div class="timer-wrap">
+            <div class="timer-number" id="timer-number">0:40</div>
+            <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
+          </div>
+        </div>
+
+        <div class="passage hidden" id="question-passage"></div>
+        <div class="emotion-image-frame hidden" id="question-image-frame">
+          <img id="question-image" alt="">
+        </div>
+        <h2 class="prompt" id="question-prompt"></h2>
+        <div class="options" id="question-options"></div>
+        <div class="answer-status hidden" id="answer-status">Answer submitted. Wait for the teacher.</div>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-result">
+      <div class="score-bar">
+        <span id="result-name">Student</span>
+        <strong>Score: <span id="result-score">0</span></strong>
+      </div>
+      <div class="panel">
+        <div class="result-strip" id="result-strip"></div>
+        <p class="muted">Correct answer: <strong id="correct-answer"></strong></p>
+        <p class="muted">Waiting for the next question.</p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-leaderboard">
+      <div class="panel">
+        <h2 class="panel-title">Leaderboard</h2>
+        <div class="leaderboard-list" id="leaderboard-list"></div>
+        <p class="muted">Waiting for the teacher.</p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-finished">
+      <div class="panel">
+        <h2 class="panel-title">Quiz complete</h2>
+        <p>Your final score: <strong id="final-score">0</strong></p>
+        <div class="leaderboard-list" id="final-leaderboard"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="removed-overlay" id="removed-overlay">
+    <div class="removed-box">
+      <h2>You have been removed</h2>
+      <p id="removed-reason">You left the quiz.</p>
+      <p>Your score so far: <strong id="removed-score">0</strong></p>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/exam1bac-student.js"></script>
+</body>
+</html>

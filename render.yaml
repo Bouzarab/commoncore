@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: law-quiz-live-1bac
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server-1bac.js
+    healthCheckPath: /health

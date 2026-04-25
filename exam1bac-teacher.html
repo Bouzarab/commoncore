@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher - 1st Bac Exam Live</title>
+  <link rel="stylesheet" href="/exam1bac.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>1st Bac Exam Live</h1>
+        <p>Teacher control room</p>
+      </div>
+      <div class="top-actions">
+        <a class="btn ghost" href="/exam1bac-student.html" target="_blank" rel="noreferrer">Open student page</a>
+        <button class="btn danger" id="end-quiz-btn">End quiz</button>
+      </div>
+    </header>
+
+    <section class="screen active" id="screen-lobby">
+      <div class="layout">
+        <div class="panel">
+          <h2 class="panel-title">Lobby</h2>
+          <div class="stat-grid">
+            <div class="stat">
+              <span class="value" id="active-count">0</span>
+              <span class="label">Active students</span>
+            </div>
+            <div class="stat">
+              <span class="value" id="removed-count">0</span>
+              <span class="label">Removed</span>
+            </div>
+            <div class="stat">
+              <span class="value" id="total-count">24</span>
+              <span class="label">Questions</span>
+            </div>
+          </div>
+          <p class="muted">Share the student page link. Students enter their names here before you start.</p>
+          <div class="button-row">
+            <button class="btn primary" id="start-btn" disabled>Start quiz</button>
+            <button class="btn ghost" id="restart-btn">Reset lobby</button>
+          </div>
+        </div>
+
+        <aside>
+          <div class="panel">
+            <h2 class="panel-title">Students</h2>
+            <div class="student-list" id="student-list"></div>
+          </div>
+          <div class="panel">
+            <h2 class="panel-title">Removed students</h2>
+            <div class="student-list" id="removed-list"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-question">
+      <div class="layout">
+        <div class="panel question-card">
+          <div class="question-head">
+            <div class="question-meta">
+              <span class="tag" id="question-number">Question 1 of 24</span>
+              <span class="tag" id="question-section">Section</span>
+              <span class="tag" id="question-points">10 points</span>
+            </div>
+            <div class="timer-wrap">
+              <div class="timer-number" id="timer-number">0:40</div>
+              <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
+            </div>
+          </div>
+
+          <div class="passage hidden" id="question-passage"></div>
+          <div class="emotion-image-frame hidden" id="question-image-frame">
+            <img id="question-image" alt="">
+          </div>
+          <h2 class="prompt" id="question-prompt"></h2>
+          <div class="options" id="question-options"></div>
+        </div>
+
+        <aside>
+          <div class="panel">
+            <h2 class="panel-title">Live progress</h2>
+            <div class="stat-grid">
+              <div class="stat">
+                <span class="value" id="answer-count">0</span>
+                <span class="label">Answers</span>
+              </div>
+              <div class="stat">
+                <span class="value" id="answer-total">0</span>
+                <span class="label">Active</span>
+              </div>
+              <div class="stat">
+                <span class="value" id="question-time-kind">40s</span>
+                <span class="label">Timer</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" id="move-next-btn">Move to next question</button>
+              <button class="btn secondary" id="show-results-btn">Show results now</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2 class="panel-title">Students</h2>
+            <div class="student-list" id="question-student-list"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-results">
+      <div class="layout">
+        <div>
+          <div class="panel">
+            <h2 class="panel-title">Question results</h2>
+            <div class="result-strip" id="correct-answer"></div>
+            <div class="stat-grid">
+              <div class="stat">
+                <span class="value" id="correct-count">0</span>
+                <span class="label">Correct</span>
+              </div>
+              <div class="stat">
+                <span class="value" id="wrong-count">0</span>
+                <span class="label">Wrong</span>
+              </div>
+              <div class="stat">
+                <span class="value" id="no-answer-count">0</span>
+                <span class="label">No answer</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" id="results-next-btn">Next question</button>
+              <button class="btn secondary" id="leaderboard-btn">Show leaderboard</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel">
+          <h2 class="panel-title">Current standings</h2>
+          <div class="leaderboard-list" id="results-leaderboard"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-leaderboard">
+      <div class="layout">
+        <div class="panel">
+          <h2 class="panel-title">Leaderboard</h2>
+          <div class="leaderboard-list" id="leaderboard-list"></div>
+        </div>
+        <aside class="panel">
+          <h2 class="panel-title">Controls</h2>
+          <div class="button-row">
+            <button class="btn primary" id="leaderboard-next-btn">Next question</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-finished">
+      <div class="panel">
+        <h2 class="panel-title">Quiz complete</h2>
+        <p class="muted">Final scores are below. Removed students keep the points they earned before removal.</p>
+        <div class="leaderboard-list" id="final-leaderboard"></div>
+        <div class="button-row" style="margin-top: 14px;">
+          <button class="btn primary" id="final-restart-btn">Start a new run</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/exam1bac-teacher.js"></script>
+</body>
+</html>
