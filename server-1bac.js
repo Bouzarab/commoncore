@@ -23,7 +23,14 @@ const IMAGE_TIME = 35;
 const DISCONNECT_GRACE_MS = 30000;
 
 const VALID_CLASSES = ['TCSF3', 'TCSF4', 'TCSF5'];
+const RESULT_REVEAL_MS = 4500;
 
+app.use((req, res, next) => {
+  if (/\.(?:html|css|js)$/i.test(req.path)) {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+  }
+  next();
+});
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => res.redirect('/exam1bac-teacher.html'));
@@ -628,6 +635,33 @@ function emitAnswerProgress() {
   });
 }
 
+function clearAutoAdvanceTimer() {
+  if (gameState.autoAdvanceTimer) {
+    clearTimeout(gameState.autoAdvanceTimer);
+    gameState.autoAdvanceTimer = null;
+  }
+}
+
+function scheduleNextAfterResults(slotIndex = gameState.currentQuestionIndex) {
+  clearAutoAdvanceTimer();
+  gameState.autoAdvanceTimer = setTimeout(() => {
+    if (gameState.phase !== 'results' || gameState.currentQuestionIndex !== slotIndex) return;
+
+    if (slotIndex >= QUIZ_QUESTION_COUNT - 1) {
+      finishQuiz();
+      return;
+    }
+    showQuestionAt(slotIndex + 1);
+  }, RESULT_REVEAL_MS);
+}
+
+function revealCurrentQuestionResults(slotIndex = gameState.currentQuestionIndex) {
+  if (gameState.phase !== 'question' || slotIndex !== gameState.currentQuestionIndex) return;
+
+  finishCurrentQuestion(true);
+  scheduleNextAfterResults(slotIndex);
+}
+
 function maybeAdvanceAfterAllAnswered(slotIndex = gameState.currentQuestionIndex) {
   if (gameState.phase !== 'question' || slotIndex !== gameState.currentQuestionIndex) return;
 
@@ -642,11 +676,7 @@ function maybeAdvanceAfterAllAnswered(slotIndex = gameState.currentQuestionIndex
     if (!stillActive.length) return;
     if (!stillActive.every(player => findAnswer(player, slotIndex))) return;
 
-    if (slotIndex >= QUIZ_QUESTION_COUNT - 1) {
-      finishQuiz();
-      return;
-    }
-    showQuestionAt(slotIndex + 1);
+    revealCurrentQuestionResults(slotIndex);
   }, 650);
 }
 
@@ -763,6 +793,7 @@ function getTeacherState() {
 
 function emitTeacherState() {
   io.to('teachers').emit('teacher:state', getTeacherState());
+  io.emit('game:rankings', { leaderboard: getLeaderboard() });
 }
 
 function emitStudentCurrentState(socket, player) {
@@ -810,6 +841,7 @@ const gameState = {
   questionStartedAt: null,
   timeRemaining: 0,
   timer: null,
+  autoAdvanceTimer: null,
   lastResultsPayload: null,
   pendingDisconnects: {}
 };
@@ -831,11 +863,7 @@ function startTimer(question) {
     gameState.timeRemaining -= 1;
     io.emit('game:timer', { timeRemaining: gameState.timeRemaining });
     if (gameState.timeRemaining <= 0) {
-      if (gameState.currentQuestionIndex >= QUIZ_QUESTION_COUNT - 1) {
-        finishQuiz();
-      } else {
-        showQuestionAt(gameState.currentQuestionIndex + 1);
-      }
+      revealCurrentQuestionResults(gameState.currentQuestionIndex);
     }
   }, 1000);
 }
@@ -843,6 +871,7 @@ function startTimer(question) {
 // ─── Quiz flow ────────────────────────────────────────────────────────────────
 function showQuestionAt(slotIndex) {
   clearTimer();
+  clearAutoAdvanceTimer();
 
   if (slotIndex >= QUIZ_QUESTION_COUNT) {
     finishQuiz();
@@ -902,6 +931,7 @@ function finishCurrentQuestion(showResults) {
 
 function finishQuiz() {
   clearTimer();
+  clearAutoAdvanceTimer();
   gameState.phase = 'finished';
   io.emit('game:finished', { leaderboard: getLeaderboard() });
   emitTeacherState();
@@ -940,9 +970,6 @@ function markPlayerRemoved(playerId, reason, type, token, shouldDisconnect = tru
       reason: player.removalReason,
       score: Math.round(player.score * 100) / 100
     });
-    if (shouldDisconnect) {
-      setTimeout(() => targetSocket.disconnect(true), 120);
-    }
   }
 
   return true;
@@ -954,6 +981,27 @@ function restorePlayer(playerId) {
 
   clearPendingDisconnect(player.token);
   gameState.bannedNames.delete(player.banKey);
+
+  const targetSocket = io.sockets.sockets.get(playerId);
+  if (targetSocket) {
+    player.status = 'active';
+    player.connectionStatus = 'online';
+    player.removalReason = '';
+    player.removalType = '';
+    player.allowedBackAt = Date.now();
+    player.disconnectedAt = null;
+
+    targetSocket.emit('student:restored', {
+      score: Math.round(player.score * 100) / 100
+    });
+    emitStudentCurrentState(targetSocket, player);
+    io.emit('game:playerCount', { count: getActivePlayers().length });
+    emitAnswerProgress();
+    emitTeacherState();
+    maybeAdvanceAfterAllAnswered();
+    return true;
+  }
+
   player.status = 'allowed_back';
   player.connectionStatus = 'offline';
   player.removalReason = 'Allowed to rejoin';
@@ -966,6 +1014,7 @@ function restorePlayer(playerId) {
 
 function resetQuiz() {
   clearTimer();
+  clearAutoAdvanceTimer();
   Object.values(gameState.pendingDisconnects).forEach(clearTimeout);
   gameState.players = {};
 
@@ -974,6 +1023,7 @@ function resetQuiz() {
   gameState.currentQuestionIndex = -1;
   gameState.questionStartedAt = null;
   gameState.timeRemaining = 0;
+  gameState.autoAdvanceTimer = null;
   gameState.lastResultsPayload = null;
   gameState.pendingDisconnects = {};
 
@@ -1111,6 +1161,13 @@ io.on('connection', (socket) => {
   socket.on('teacher:start', safe(() => {
     if (gameState.phase !== 'lobby') return;
     if (getActivePlayers().length < 1) return;
+    const blocked = getActivePlayers().filter(player => player.translationOk === false);
+    if (blocked.length) {
+      io.to('teachers').emit('teacher:notice', {
+        message: `${blocked.length} student${blocked.length === 1 ? '' : 's'} must turn off page translation before the quiz can start.`
+      });
+      return;
+    }
     startNextQuestion();
   }));
 
@@ -1164,7 +1221,7 @@ io.on('connection', (socket) => {
   }));
 
   // ── Student events ──
-  socket.on('student:join', safe(({ name, number, studentClass }) => {
+  socket.on('student:join', safe(({ name, number, studentClass, translationOk }) => {
     const cleanName = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
     const cleanNumber = String(number || '').trim().slice(0, 20);
     const cleanClass = String(studentClass || '').trim();
@@ -1189,6 +1246,12 @@ io.on('connection', (socket) => {
     }
     if (!VALID_CLASSES.includes(cleanClass)) {
       socket.emit('student:joinRejected', { message: 'Please select a valid class.' });
+      return;
+    }
+    if (translationOk === false) {
+      socket.emit('student:joinRejected', {
+        message: 'Please turn off page translation and keep the quiz page in English before joining.'
+      });
       return;
     }
     if (gameState.phase === 'finished') {
@@ -1233,6 +1296,7 @@ io.on('connection', (socket) => {
       score: 0,
       answers: [],
       questionSet: buildStudentQuestionSet(),
+      translationOk: translationOk !== false,
       status: 'active',
       connectionStatus: 'online',
       joinedAt: Date.now()
@@ -1253,12 +1317,18 @@ io.on('connection', (socket) => {
     emitTeacherState();
   }));
 
-  socket.on('student:answer', safe(({ questionId, choiceIndex, token }) => {
+  socket.on('student:answer', safe(({ questionId, choiceIndex, token, translationOk }) => {
     let player = gameState.players[socket.id];
     if (!player && token) {
       player = resumePlayer(socket, token);
     }
     if (!player || player.status !== 'active') return;
+    if (translationOk === false) {
+      player.translationOk = false;
+      markPlayerRemoved(socket.id, 'Page translation is active. Turn it off and ask the teacher to let you back in.', 'translation', token, false);
+      return;
+    }
+    player.translationOk = true;
     const question = getPlayerQuestion(player);
     if (gameState.phase !== 'question' || !question || question.id !== questionId) return;
 

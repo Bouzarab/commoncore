@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student — Common Core Quiz</title>
-  <link rel="stylesheet" href="/exam1bac.css">
+  <link rel="stylesheet" href="/exam1bac.css?v=20260513-2">
 </head>
 <body>
   <main class="app-shell student">
+    <div class="translation-sentinel" id="translation-sentinel" aria-hidden="true">Keep this page in English.</div>
 
     <!-- ── Registration ─────────────────────────────────────────────────── -->
     <section class="screen active join-shell" id="screen-join">
@@ -45,6 +46,9 @@
           </div>
 
           <div class="error-box" id="join-error" role="alert"></div>
+          <div class="translation-gate ok" id="translation-gate" role="status">
+            Page language check: English page is active.
+          </div>
 
           <button class="join-submit" type="submit" id="join-btn">Join the Quiz</button>
         </form>
@@ -146,6 +150,11 @@
       </div>
     </section>
 
+    <section class="panel ranking-dashboard" id="student-ranking-dashboard">
+      <h2 class="panel-title">Student Ranking</h2>
+      <div class="leaderboard-list" id="student-dashboard-ranking"></div>
+    </section>
+
   </main>
 
   <!-- ── Removed overlay ──────────────────────────────────────────────────── -->
@@ -160,6 +169,6 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/exam1bac-student.js"></script>
+  <script src="/exam1bac-student.js?v=20260513-2"></script>
 </body>
 </html>

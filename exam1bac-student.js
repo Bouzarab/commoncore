@@ -14,6 +14,8 @@ let totalQuestions = 20;
 let protectionArmed = false;
 let violationSent = false;
 let removed = false;
+let translationClear = true;
+let translationGateUpdating = false;
 const MAX_SCORE = 20;
 
 // ─── Screen management ────────────────────────────────────────────────────────
@@ -82,9 +84,52 @@ function markAnswerSubmitted() {
   hasAnswered = true;
   document.querySelectorAll('#question-options .option').forEach((opt) => {
     opt.disabled = true;
+    opt.blur();
     opt.classList.remove('selected', 'correct', 'incorrect');
   });
   document.getElementById('answer-status').classList.remove('hidden');
+}
+
+function looksTranslated() {
+  const html = document.documentElement;
+  const htmlClass = html.className || '';
+  const bodyText = document.body?.innerText || '';
+  const sentinel = document.getElementById('translation-sentinel');
+  const sentinelText = sentinel?.textContent || '';
+
+  return htmlClass.includes('translated-ltr')
+    || htmlClass.includes('translated-rtl')
+    || !/^en\b/i.test(html.getAttribute('lang') || 'en')
+    || Boolean(document.querySelector('iframe.skiptranslate, .goog-te-banner-frame, #goog-gt-tt, .goog-tooltip'))
+    || /[\u0600-\u06FF]/.test(bodyText)
+    || (sentinel && !sentinelText.includes('Keep this page in English'));
+}
+
+function updateTranslationGate() {
+  if (translationGateUpdating) return translationClear;
+  translationGateUpdating = true;
+  translationClear = !looksTranslated();
+
+  const gate = document.getElementById('translation-gate');
+  if (gate) {
+    const nextClass = `translation-gate ${translationClear ? 'ok' : 'blocked'}`;
+    const nextText = translationClear
+      ? 'Page language check: English page is active.'
+      : 'Turn off page translation before joining. The quiz must stay in English.';
+    if (gate.className !== nextClass) gate.className = nextClass;
+    if (gate.textContent !== nextText) gate.textContent = nextText;
+  }
+
+  if (joinBtn) {
+    joinBtn.disabled = !translationClear;
+  }
+
+  if (!translationClear && protectionArmed && !removed) {
+    sendViolation('Page translation is active. Turn it off and ask the teacher to let you back in.', 'translation');
+  }
+
+  translationGateUpdating = false;
+  return translationClear;
 }
 
 // ─── Render question ──────────────────────────────────────────────────────────
@@ -170,12 +215,15 @@ function updateTimer(seconds) {
 // ─── Submit answer ────────────────────────────────────────────────────────────
 function submitAnswer(choiceIndex, btn) {
   if (hasAnswered || !currentQuestion || removed) return;
-  markAnswerSubmitted(choiceIndex);
+  if (!updateTranslationGate()) return;
+  markAnswerSubmitted();
+  if (btn) btn.blur();
 
   socket.emit('student:answer', {
     questionId: currentQuestion.id,
     choiceIndex,
-    token: playerToken
+    token: playerToken,
+    translationOk: translationClear
   });
 }
 
@@ -257,7 +305,6 @@ function sendViolation(reason, type) {
   } catch (_) {}
 
   showRemoved(reason, myScore);
-  setTimeout(() => socket.disconnect(), 250);
 }
 
 function armProtection() {
@@ -314,6 +361,10 @@ joinForm.addEventListener('submit', (e) => {
     showError('Please select your class.');
     return;
   }
+  if (!updateTranslationGate()) {
+    showError('Please turn off page translation and keep this page in English before joining.');
+    return;
+  }
 
   // Switch to waiting screen immediately — no need to stare at the form
   setText('waiting-name', name);
@@ -321,12 +372,12 @@ joinForm.addEventListener('submit', (e) => {
   setText('waiting-status', 'Your registration is being confirmed…');
   showScreen('waiting');
 
-  socket.emit('student:join', { name, number, studentClass: cls });
+  socket.emit('student:join', { name, number, studentClass: cls, translationOk: translationClear });
 });
 
 // ─── Socket events ────────────────────────────────────────────────────────────
 socket.on('connect', () => {
-  if (playerToken && studentName && !removed) {
+  if (playerToken && studentName) {
     socket.emit('student:resume', { token: playerToken });
   }
 });
@@ -356,6 +407,7 @@ socket.on('student:joined', ({ id, token, name, number, studentClass: cls, score
 
   // Stay on the waiting screen (already showing), arm protection
   armProtection();
+  updateTranslationGate();
 });
 
 socket.on('student:resumed', ({ id, token, name, number, studentClass: cls, score, totalQuestions: serverTotalQuestions }) => {
@@ -372,7 +424,11 @@ socket.on('student:resumed', ({ id, token, name, number, studentClass: cls, scor
   setText('waiting-detail', `${cls} · #${number}`);
   setText('waiting-status', 'Connection restored. Waiting for the quiz...');
   updateScore(score);
+  removed = false;
+  violationSent = false;
+  document.getElementById('removed-overlay').classList.remove('active');
   armProtection();
+  updateTranslationGate();
 });
 
 socket.on('game:question', (question) => {
@@ -388,8 +444,8 @@ socket.on('game:timer', ({ timeRemaining }) => {
   updateTimer(timeRemaining);
 });
 
-socket.on('student:answerReceived', ({ choiceIndex } = {}) => {
-  markAnswerSubmitted(choiceIndex);
+socket.on('student:answerReceived', () => {
+  markAnswerSubmitted();
 });
 
 socket.on('student:score', ({ score }) => {
@@ -422,6 +478,10 @@ socket.on('game:leaderboard', ({ leaderboard }) => {
   if (removed || !playerToken) return;
   renderLeaderboard('leaderboard-list', leaderboard || []);
   showScreen('leaderboard');
+});
+
+socket.on('game:rankings', ({ leaderboard }) => {
+  renderLeaderboard('student-dashboard-ranking', leaderboard || []);
 });
 
 socket.on('game:finished', ({ leaderboard }) => {
@@ -457,6 +517,29 @@ socket.on('game:reset', ({ clearStudents } = {}) => {
 socket.on('student:removed', ({ reason, score }) => {
   showRemoved(reason, score);
 });
+
+socket.on('student:restored', ({ score } = {}) => {
+  removed = false;
+  violationSent = false;
+  document.getElementById('removed-overlay').classList.remove('active');
+  updateScore(score ?? myScore);
+  armProtection();
+  updateTranslationGate();
+  if (playerToken) {
+    socket.emit('student:sync', { token: playerToken });
+  }
+});
+
+setInterval(updateTranslationGate, 1200);
+
+new MutationObserver(() => updateTranslationGate()).observe(document.documentElement, {
+  attributes: true,
+  childList: true,
+  subtree: true,
+  characterData: true
+});
+
+updateTranslationGate();
 
 // ─── Anti-cheat ───────────────────────────────────────────────────────────────
 document.addEventListener('visibilitychange', () => {

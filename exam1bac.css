@@ -73,6 +73,17 @@ img { display: block; max-width: 100%; }
   padding: 16px 0 60px;
 }
 
+.translation-sentinel {
+  position: fixed;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
 /* ─── Topbar ──────────────────────────────────────────────────────────────── */
 .topbar {
   display: flex;
@@ -493,13 +504,41 @@ img { display: block; max-width: 100%; }
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
 
-button.option:hover:not(:disabled) {
-  border-color: var(--teal);
-  background: var(--teal-bg);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  button.option:hover:not(:disabled) {
+    border-color: var(--teal);
+    background: var(--teal-bg);
+    transform: translateY(-1px);
+  }
 }
 
-button.option:disabled { cursor: default; }
+button.option {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.option:focus,
+button.option:focus-visible {
+  outline: none;
+}
+
+button.option:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.app-shell.student button.option:disabled {
+  background: #fff !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+  transform: none !important;
+}
+
+.app-shell.student button.option:disabled .option-letter {
+  background: var(--line-soft) !important;
+  color: var(--ink-muted) !important;
+  border-color: var(--line) !important;
+}
+
 button.option.selected { border-color: var(--blue); background: var(--blue-bg); }
 .option.correct { border-color: #22c55e; background: var(--green-bg); }
 .option.incorrect { border-color: var(--red); background: var(--red-bg); }
@@ -551,6 +590,29 @@ button.option.selected .option-letter {
 }
 
 .answer-status::before { content: '✓ '; }
+
+/* ─── Translation gate ───────────────────────────────────────────────────── */
+.translation-gate {
+  margin: 10px 0 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.translation-gate.ok {
+  color: var(--teal-dark);
+  background: var(--teal-bg);
+  border-color: var(--teal-border);
+}
+
+.translation-gate.blocked {
+  color: var(--red);
+  background: var(--red-bg);
+  border-color: var(--red-border);
+}
 
 /* ─── Result strip ────────────────────────────────────────────────────────── */
 .result-strip {
@@ -856,6 +918,15 @@ button.option.selected .option-letter {
 
 .removed-box p { color: var(--ink-muted); margin-bottom: 8px; }
 .removed-score { font-size: 1.5rem; font-weight: 900; color: var(--ink); }
+
+/* ─── Ranking dashboard ──────────────────────────────────────────────────── */
+.ranking-dashboard {
+  margin-top: 18px;
+}
+
+.app-shell.student .ranking-dashboard {
+  margin-top: 16px;
+}
 
 /* ─── Teacher live progress bar ───────────────────────────────────────────── */
 .progress-bar-wrap {

@@ -291,6 +291,7 @@ function applyTeacherState(state) {
   renderLeaderboard('leaderboard-list', state.leaderboard || []);
   renderLeaderboard('results-leaderboard', state.leaderboard || []);
   renderLeaderboard('final-leaderboard', state.leaderboard || []);
+  renderLeaderboard('teacher-dashboard-ranking', state.leaderboard || []);
 
   updateAnswerProgress(state.answerCount || 0, activeCount);
 
@@ -346,7 +347,16 @@ socket.on('game:leaderboard', ({ leaderboard }) => {
 
 socket.on('game:finished', ({ leaderboard }) => {
   renderLeaderboard('final-leaderboard', leaderboard || []);
+  renderLeaderboard('teacher-dashboard-ranking', leaderboard || []);
   showScreen('finished');
+});
+
+socket.on('game:rankings', ({ leaderboard }) => {
+  renderLeaderboard('teacher-dashboard-ranking', leaderboard || []);
+});
+
+socket.on('teacher:notice', ({ message }) => {
+  window.alert(message || 'Please check the quiz settings.');
 });
 
 socket.on('game:reset', () => {
