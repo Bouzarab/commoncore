@@ -17,6 +17,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 const TOTAL_SCORE = 20;
+const QUIZ_QUESTION_COUNT = 20;
 const STANDARD_TIME = 40;
 const IMAGE_TIME = 35;
 const DISCONNECT_GRACE_MS = 30000;
@@ -46,7 +47,7 @@ app.get('/exam1bac/export-results', (req, res) => {
     return res.status(404).json({ error: 'No student data available.' });
   }
 
-  const questionCount = questions.length;
+  const questionCount = QUIZ_QUESTION_COUNT;
 
   // Header row
   const header = ['Name', 'Number', 'Class'];
@@ -85,7 +86,9 @@ app.get('/exam1bac/export-results', (req, res) => {
     }
 
     const score = Math.round(player.score * 100) / 100;
-    row.push(score, correctCount, player.status === 'active' ? 'Active' : 'Removed');
+    row.push(score, correctCount, player.status === 'active'
+      ? 'Active'
+      : (player.status === 'allowed_back' ? 'Allowed back' : 'Removed'));
     rows.push(row);
   }
 
@@ -492,7 +495,7 @@ const questionsRaw = [
   }
 ];
 
-const POINTS_PER_QUESTION = TOTAL_SCORE / questionsRaw.length;
+const POINTS_PER_QUESTION = TOTAL_SCORE / QUIZ_QUESTION_COUNT;
 
 const questions = questionsRaw.map((q, i) => ({
   ...q,
@@ -540,27 +543,29 @@ function shuffleQuestionOptions(question) {
 }
 
 function buildStudentQuestionSet() {
-  return shuffleArray(questions).map(q => shuffleQuestionOptions(q));
+  return shuffleArray(questions)
+    .slice(0, QUIZ_QUESTION_COUNT)
+    .map(q => shuffleQuestionOptions(q));
 }
 
 function questionForSlot(question, slotIndex) {
   return {
     ...question,
     number: slotIndex + 1,
-    total: questions.length,
+    total: QUIZ_QUESTION_COUNT,
     timeLimit: STANDARD_TIME
   };
 }
 
 function ensureStudentQuestionSet(player) {
-  if (!player.questionSet || player.questionSet.length !== questions.length) {
+  if (!player.questionSet || player.questionSet.length !== QUIZ_QUESTION_COUNT) {
     player.questionSet = buildStudentQuestionSet();
   }
   return player.questionSet;
 }
 
 function getPlayerQuestion(player, slotIndex = gameState.currentQuestionIndex) {
-  if (!player || slotIndex < 0 || slotIndex >= questions.length) return null;
+  if (!player || slotIndex < 0 || slotIndex >= QUIZ_QUESTION_COUNT) return null;
   const questionSet = ensureStudentQuestionSet(player);
   return questionForSlot(questionSet[slotIndex], slotIndex);
 }
@@ -569,7 +574,7 @@ function publicQuestion(question) {
   return {
     id: question.id,
     number: question.number,
-    total: question.total || questions.length,
+    total: question.total || QUIZ_QUESTION_COUNT,
     section: question.section,
     prompt: question.prompt,
     passage: question.passage || null,
@@ -586,9 +591,9 @@ function teacherSlotQuestion(slotIndex = gameState.currentQuestionIndex) {
   return {
     id: `slot-${slotNumber}`,
     number: slotNumber,
-    total: questions.length,
+    total: QUIZ_QUESTION_COUNT,
     section: 'Randomized Quiz',
-    prompt: `Question ${slotNumber} of ${questions.length}: each student is seeing a different randomized question.`,
+    prompt: `Question ${slotNumber} of ${QUIZ_QUESTION_COUNT}: each student is seeing one question randomly selected from a ${questions.length}-question bank.`,
     passage: null,
     image: null,
     imageAlt: '',
@@ -600,6 +605,100 @@ function teacherSlotQuestion(slotIndex = gameState.currentQuestionIndex) {
 
 function getActivePlayers() {
   return Object.values(gameState.players).filter(p => p.status === 'active');
+}
+
+function getCurrentSlotKey(slotIndex = gameState.currentQuestionIndex) {
+  return `slot-${slotIndex + 1}`;
+}
+
+function findAnswer(player, slotIndex = gameState.currentQuestionIndex) {
+  if (!player || slotIndex < 0) return null;
+  return player.answers.find(a => a.questionNumber === slotIndex + 1) || null;
+}
+
+function currentAnswerCount() {
+  if (gameState.currentQuestionIndex < 0) return 0;
+  return getActivePlayers().filter(player => findAnswer(player)).length;
+}
+
+function emitAnswerProgress() {
+  io.to('teachers').emit('game:answerCount', {
+    count: currentAnswerCount(),
+    total: getActivePlayers().length
+  });
+}
+
+function maybeAdvanceAfterAllAnswered(slotIndex = gameState.currentQuestionIndex) {
+  if (gameState.phase !== 'question' || slotIndex !== gameState.currentQuestionIndex) return;
+
+  const activePlayers = getActivePlayers();
+  if (!activePlayers.length) return;
+  if (!activePlayers.every(player => findAnswer(player, slotIndex))) return;
+
+  setTimeout(() => {
+    if (gameState.phase !== 'question' || slotIndex !== gameState.currentQuestionIndex) return;
+
+    const stillActive = getActivePlayers();
+    if (!stillActive.length) return;
+    if (!stillActive.every(player => findAnswer(player, slotIndex))) return;
+
+    if (slotIndex >= QUIZ_QUESTION_COUNT - 1) {
+      finishQuiz();
+      return;
+    }
+    showQuestionAt(slotIndex + 1);
+  }, 650);
+}
+
+function buildQuestionResults(slotIndex = gameState.currentQuestionIndex) {
+  const slotKey = getCurrentSlotKey(slotIndex);
+  const results = {};
+  let correctCount = 0;
+  let totalAnswered = 0;
+  let noAnswerCount = 0;
+
+  for (const player of getActivePlayers()) {
+    const question = getPlayerQuestion(player, slotIndex);
+    if (!question) continue;
+
+    const answer = findAnswer(player, slotIndex);
+    if (!answer) {
+      noAnswerCount += 1;
+      results[player.id] = {
+        correct: false,
+        points: 0,
+        score: Math.round(player.score * 100) / 100,
+        noAnswer: true,
+        correctAnswer: question.options[question.correctIndex]
+      };
+      continue;
+    }
+
+    totalAnswered += 1;
+    if (answer.correct) correctCount += 1;
+    results[player.id] = {
+      correct: answer.correct,
+      points: answer.points,
+      score: Math.round(player.score * 100) / 100,
+      choiceIndex: answer.choiceIndex,
+      correctAnswer: answer.correctAnswer
+    };
+  }
+
+  return {
+    questionId: slotKey,
+    questionNumber: slotIndex + 1,
+    correctAnswer: 'Each student had a different question.',
+    correctIndex: null,
+    results,
+    stats: {
+      totalAnswered,
+      correctCount,
+      totalActive: getActivePlayers().length,
+      noAnswerCount
+    },
+    leaderboard: getLeaderboard()
+  };
 }
 
 function findPlayerEntryByToken(token) {
@@ -645,7 +744,7 @@ function publicPlayer(player) {
 
 function getTeacherState() {
   const qi = gameState.currentQuestionIndex;
-  const currentQuestion = qi >= 0 && qi < questions.length ? teacherSlotQuestion(qi) : null;
+  const currentQuestion = qi >= 0 && qi < QUIZ_QUESTION_COUNT ? teacherSlotQuestion(qi) : null;
   const players = Object.fromEntries(
     Object.entries(gameState.players).map(([id, p]) => [id, publicPlayer(p)])
   );
@@ -655,9 +754,9 @@ function getTeacherState() {
     leaderboard: getLeaderboard(),
     currentQuestion,
     currentQuestionIndex: qi,
-    totalQuestions: questions.length,
+    totalQuestions: QUIZ_QUESTION_COUNT,
     activeCount: getActivePlayers().length,
-    answerCount: Object.keys(gameState.currentAnswers).length,
+    answerCount: currentAnswerCount(),
     timeRemaining: gameState.timeRemaining
   };
 }
@@ -680,7 +779,7 @@ function emitStudentCurrentState(socket, player) {
     socket.emit('game:question', publicQuestion(question));
     socket.emit('game:timer', { timeRemaining: gameState.timeRemaining });
 
-    const answer = gameState.currentAnswers[player.id];
+    const answer = findAnswer(player);
     if (answer) {
       socket.emit('student:answerReceived', { choiceIndex: answer.choiceIndex });
     }
@@ -708,11 +807,9 @@ const gameState = {
   players: {},
   bannedNames: new Set(),    // stores banKey (order-independent)
   currentQuestionIndex: -1,
-  currentAnswers: {},
   questionStartedAt: null,
   timeRemaining: 0,
   timer: null,
-  scoredQuestionIds: new Set(),
   lastResultsPayload: null,
   pendingDisconnects: {}
 };
@@ -734,37 +831,49 @@ function startTimer(question) {
     gameState.timeRemaining -= 1;
     io.emit('game:timer', { timeRemaining: gameState.timeRemaining });
     if (gameState.timeRemaining <= 0) {
-      finishCurrentQuestion(true);
+      if (gameState.currentQuestionIndex >= QUIZ_QUESTION_COUNT - 1) {
+        finishQuiz();
+      } else {
+        showQuestionAt(gameState.currentQuestionIndex + 1);
+      }
     }
   }, 1000);
 }
 
 // ─── Quiz flow ────────────────────────────────────────────────────────────────
-function startNextQuestion() {
+function showQuestionAt(slotIndex) {
   clearTimer();
-  gameState.currentQuestionIndex += 1;
-  gameState.lastResultsPayload = null;
 
-  if (gameState.currentQuestionIndex >= questions.length) {
+  if (slotIndex >= QUIZ_QUESTION_COUNT) {
     finishQuiz();
     return;
   }
 
+  gameState.currentQuestionIndex = Math.max(0, Math.min(slotIndex, QUIZ_QUESTION_COUNT - 1));
   gameState.phase = 'question';
-  gameState.currentAnswers = {};
+  gameState.lastResultsPayload = null;
   gameState.questionStartedAt = Date.now();
   gameState.timeRemaining = STANDARD_TIME;
 
   for (const player of getActivePlayers()) {
-    const studentQuestion = getPlayerQuestion(player);
-    if (studentQuestion) {
-      io.to(player.id).emit('game:question', publicQuestion(studentQuestion));
+    const studentSocket = io.sockets.sockets.get(player.id);
+    if (studentSocket) {
+      emitStudentCurrentState(studentSocket, player);
     }
   }
   io.to('teachers').emit('game:question', teacherSlotQuestion());
-  io.emit('game:answerCount', { count: 0, total: getActivePlayers().length });
+  emitAnswerProgress();
   emitTeacherState();
   startTimer({ timeLimit: STANDARD_TIME });
+}
+
+function startNextQuestion() {
+  showQuestionAt(gameState.currentQuestionIndex + 1);
+}
+
+function startPreviousQuestion() {
+  if (gameState.currentQuestionIndex <= 0) return;
+  showQuestionAt(gameState.currentQuestionIndex - 1);
 }
 
 function finishCurrentQuestion(showResults) {
@@ -772,71 +881,7 @@ function finishCurrentQuestion(showResults) {
 
   clearTimer();
   const slotIndex = gameState.currentQuestionIndex;
-  const slotKey = `slot-${slotIndex + 1}`;
-  const results = {};
-  let correctCount = 0;
-  let totalAnswered = 0;
-
-  if (!gameState.scoredQuestionIds.has(slotKey)) {
-    // Score players who answered
-    for (const [playerId, answer] of Object.entries(gameState.currentAnswers)) {
-      const player = gameState.players[playerId];
-      if (!player) continue;
-      const question = getPlayerQuestion(player, slotIndex);
-      if (!question) continue;
-      totalAnswered += 1;
-      const isCorrect = Number(answer.choiceIndex) === question.correctIndex;
-      const points = isCorrect ? question.points : 0;
-      if (isCorrect) {
-        correctCount += 1;
-        player.score += points;
-      }
-      player.answers.push({
-        questionId: question.id,
-        questionNumber: question.number,
-        prompt: question.prompt,
-        choiceIndex: answer.choiceIndex,
-        choiceText: question.options[answer.choiceIndex] || '',
-        correctAnswer: question.options[question.correctIndex],
-        correct: isCorrect,
-        points
-      });
-      results[playerId] = {
-        correct: isCorrect,
-        points,
-        score: Math.round(player.score * 100) / 100,
-        choiceIndex: answer.choiceIndex,
-        correctAnswer: question.options[question.correctIndex]
-      };
-    }
-
-    // Record no-answer for active players who didn't answer
-    for (const player of getActivePlayers()) {
-      if (!results[player.id]) {
-        const question = getPlayerQuestion(player, slotIndex);
-        if (!question) continue;
-        player.answers.push({
-          questionId: question.id,
-          questionNumber: question.number,
-          prompt: question.prompt,
-          choiceIndex: null,
-          choiceText: null,
-          correctAnswer: question.options[question.correctIndex],
-          correct: false,
-          points: 0
-        });
-        results[player.id] = {
-          correct: false,
-          points: 0,
-          score: Math.round(player.score * 100) / 100,
-          noAnswer: true,
-          correctAnswer: question.options[question.correctIndex]
-        };
-      }
-    }
-
-    gameState.scoredQuestionIds.add(slotKey);
-  }
+  const payload = buildQuestionResults(slotIndex);
 
   // Push updated scores to each student
   for (const player of Object.values(gameState.players)) {
@@ -846,21 +891,6 @@ function finishCurrentQuestion(showResults) {
   }
 
   gameState.phase = showResults ? 'results' : 'closed';
-
-  const payload = {
-    questionId: slotKey,
-    questionNumber: slotIndex + 1,
-    correctAnswer: 'Each student had a different question.',
-    correctIndex: null,
-    results,
-    stats: {
-      totalAnswered,
-      correctCount,
-      totalActive: getActivePlayers().length,
-      noAnswerCount: Math.max(getActivePlayers().length - totalAnswered, 0)
-    },
-    leaderboard: getLeaderboard()
-  };
   gameState.lastResultsPayload = payload;
 
   if (showResults) {
@@ -872,9 +902,6 @@ function finishCurrentQuestion(showResults) {
 
 function finishQuiz() {
   clearTimer();
-  if (gameState.phase === 'question') {
-    finishCurrentQuestion(false);
-  }
   gameState.phase = 'finished';
   io.emit('game:finished', { leaderboard: getLeaderboard() });
   emitTeacherState();
@@ -894,10 +921,6 @@ function markPlayerRemoved(playerId, reason, type, token, shouldDisconnect = tru
   // Ban by order-independent name key
   gameState.bannedNames.add(player.banKey);
 
-  if (gameState.currentAnswers[playerId]) {
-    delete gameState.currentAnswers[playerId];
-  }
-
   io.to('teachers').emit('game:playerRemoved', {
     id: playerId,
     name: player.name,
@@ -907,11 +930,9 @@ function markPlayerRemoved(playerId, reason, type, token, shouldDisconnect = tru
     activeCount: getActivePlayers().length
   });
   io.emit('game:playerCount', { count: getActivePlayers().length });
-  io.to('teachers').emit('game:answerCount', {
-    count: Object.keys(gameState.currentAnswers).length,
-    total: getActivePlayers().length
-  });
+  emitAnswerProgress();
   emitTeacherState();
+  maybeAdvanceAfterAllAnswered();
 
   const targetSocket = io.sockets.sockets.get(playerId);
   if (targetSocket) {
@@ -927,6 +948,22 @@ function markPlayerRemoved(playerId, reason, type, token, shouldDisconnect = tru
   return true;
 }
 
+function restorePlayer(playerId) {
+  const player = gameState.players[playerId];
+  if (!player || player.status === 'active') return false;
+
+  clearPendingDisconnect(player.token);
+  gameState.bannedNames.delete(player.banKey);
+  player.status = 'allowed_back';
+  player.connectionStatus = 'offline';
+  player.removalReason = 'Allowed to rejoin';
+  player.removalType = '';
+  player.allowedBackAt = Date.now();
+
+  emitTeacherState();
+  return true;
+}
+
 function resetQuiz() {
   clearTimer();
   Object.values(gameState.pendingDisconnects).forEach(clearTimeout);
@@ -935,10 +972,8 @@ function resetQuiz() {
   gameState.bannedNames.clear();
   gameState.phase = 'lobby';
   gameState.currentQuestionIndex = -1;
-  gameState.currentAnswers = {};
   gameState.questionStartedAt = null;
   gameState.timeRemaining = 0;
-  gameState.scoredQuestionIds.clear();
   gameState.lastResultsPayload = null;
   gameState.pendingDisconnects = {};
 
@@ -951,7 +986,7 @@ function resumePlayer(socket, token) {
   if (!entry) return null;
 
   const [oldSocketId, player] = entry;
-  if (player.status !== 'active') return null;
+  if (player.status !== 'active' && player.status !== 'allowed_back') return null;
 
   clearPendingDisconnect(player.token);
 
@@ -960,18 +995,19 @@ function resumePlayer(socket, token) {
     player.id = socket.id;
     gameState.players[socket.id] = player;
 
-    if (gameState.currentAnswers[oldSocketId]) {
-      gameState.currentAnswers[socket.id] = gameState.currentAnswers[oldSocketId];
-      delete gameState.currentAnswers[oldSocketId];
-    }
-
     if (gameState.lastResultsPayload?.results?.[oldSocketId]) {
       gameState.lastResultsPayload.results[socket.id] = gameState.lastResultsPayload.results[oldSocketId];
       delete gameState.lastResultsPayload.results[oldSocketId];
     }
   }
 
+  if (player.status === 'allowed_back') {
+    gameState.bannedNames.delete(player.banKey);
+  }
   player.connectionStatus = 'online';
+  player.status = 'active';
+  player.removalReason = '';
+  player.removalType = '';
   player.disconnectedAt = null;
   socket.data.playerToken = player.token;
 
@@ -982,14 +1018,11 @@ function resumePlayer(socket, token) {
     number: player.number,
     studentClass: player.studentClass,
     score: Math.round(player.score * 100) / 100,
-    totalQuestions: questions.length
+    totalQuestions: QUIZ_QUESTION_COUNT
   });
 
   emitStudentCurrentState(socket, player);
-  io.to('teachers').emit('game:answerCount', {
-    count: Object.keys(gameState.currentAnswers).length,
-    total: getActivePlayers().length
-  });
+  emitAnswerProgress();
   emitTeacherState();
   return player;
 }
@@ -1007,6 +1040,56 @@ function scheduleDisconnectRemoval(playerId) {
   }, DISCONNECT_GRACE_MS);
 
   emitTeacherState();
+}
+
+function findAllowedBackEntry(normalizedName, number, studentClass) {
+  return Object.entries(gameState.players).find(([, player]) => (
+    player.status === 'allowed_back'
+    && player.normalizedName === normalizedName
+    && player.number === number
+    && player.studentClass === studentClass
+  )) || null;
+}
+
+function activateAllowedBackPlayer(socket, entry, cleanName, cleanNumber, cleanClass, normalizedName, banKey) {
+  const [oldSocketId, player] = entry;
+  const token = crypto.randomBytes(18).toString('hex');
+
+  clearPendingDisconnect(player.token);
+  delete gameState.players[oldSocketId];
+
+  player.id = socket.id;
+  player.token = token;
+  player.name = cleanName;
+  player.number = cleanNumber;
+  player.studentClass = cleanClass;
+  player.normalizedName = normalizedName;
+  player.banKey = banKey;
+  player.status = 'active';
+  player.connectionStatus = 'online';
+  player.removalReason = '';
+  player.removalType = '';
+  player.disconnectedAt = null;
+  player.rejoinedAt = Date.now();
+
+  socket.data.playerToken = token;
+  gameState.players[socket.id] = player;
+
+  socket.emit('student:joined', {
+    id: socket.id,
+    token,
+    name: cleanName,
+    number: cleanNumber,
+    studentClass: cleanClass,
+    score: Math.round(player.score * 100) / 100,
+    totalQuestions: QUIZ_QUESTION_COUNT
+  });
+
+  emitStudentCurrentState(socket, player);
+  io.emit('game:playerCount', { count: getActivePlayers().length });
+  emitAnswerProgress();
+  emitTeacherState();
+  return player;
 }
 
 // ─── Socket.IO events ─────────────────────────────────────────────────────────
@@ -1037,10 +1120,11 @@ io.on('connection', (socket) => {
   }));
 
   socket.on('teacher:moveNext', safe(() => {
-    if (gameState.phase === 'question') {
-      finishCurrentQuestion(false);
-    }
     startNextQuestion();
+  }));
+
+  socket.on('teacher:movePrevious', safe(() => {
+    startPreviousQuestion();
   }));
 
   socket.on('teacher:showLeaderboard', safe(() => {
@@ -1059,6 +1143,10 @@ io.on('connection', (socket) => {
 
   socket.on('teacher:kickPlayer', safe(({ playerId }) => {
     markPlayerRemoved(playerId, 'Removed by teacher', 'teacher', null, true);
+  }));
+
+  socket.on('teacher:restorePlayer', safe(({ playerId }) => {
+    restorePlayer(playerId);
   }));
 
   socket.on('student:resume', safe(({ token }) => {
@@ -1103,17 +1191,23 @@ io.on('connection', (socket) => {
       socket.emit('student:joinRejected', { message: 'Please select a valid class.' });
       return;
     }
-    if (gameState.phase !== 'lobby') {
-      socket.emit('student:joinRejected', { message: 'The quiz has already started. Please wait for the next session.' });
+    if (gameState.phase === 'finished') {
+      socket.emit('student:joinRejected', { message: 'The quiz has finished. Please wait for the next session.' });
       return;
     }
 
     const normalizedName = normalizeName(cleanName);
     const banKey = normalizeNameForBan(cleanName);
+    const allowedBackEntry = findAllowedBackEntry(normalizedName, cleanNumber, cleanClass);
+
+    if (allowedBackEntry) {
+      activateAllowedBackPlayer(socket, allowedBackEntry, cleanName, cleanNumber, cleanClass, normalizedName, banKey);
+      return;
+    }
 
     if (gameState.bannedNames.has(banKey)) {
       socket.emit('student:joinRejected', {
-        message: 'You have been removed from this quiz session and cannot rejoin.'
+        message: 'You have been removed from this quiz session. Ask the teacher to let you back in.'
       });
       return;
     }
@@ -1150,9 +1244,12 @@ io.on('connection', (socket) => {
       name: cleanName,
       number: cleanNumber,
       studentClass: cleanClass,
-      totalQuestions: questions.length
+      score: 0,
+      totalQuestions: QUIZ_QUESTION_COUNT
     });
     io.emit('game:playerCount', { count: getActivePlayers().length });
+    emitStudentCurrentState(socket, gameState.players[socket.id]);
+    emitAnswerProgress();
     emitTeacherState();
   }));
 
@@ -1161,22 +1258,44 @@ io.on('connection', (socket) => {
     if (!player && token) {
       player = resumePlayer(socket, token);
     }
-    const question = getPlayerQuestion(player);
     if (!player || player.status !== 'active') return;
+    const question = getPlayerQuestion(player);
     if (gameState.phase !== 'question' || !question || question.id !== questionId) return;
-    if (gameState.currentAnswers[socket.id]) return;
+
+    const existingAnswer = findAnswer(player);
+    if (existingAnswer) {
+      socket.emit('student:answerReceived', { choiceIndex: existingAnswer.choiceIndex });
+      return;
+    }
 
     const numericChoice = Number(choiceIndex);
     if (!Number.isInteger(numericChoice) || numericChoice < 0 || numericChoice >= question.options.length) return;
 
-    gameState.currentAnswers[socket.id] = { choiceIndex: numericChoice, timestamp: Date.now() };
+    const isCorrect = numericChoice === question.correctIndex;
+    const points = isCorrect ? question.points : 0;
+    if (isCorrect) {
+      player.score += points;
+    }
+
+    player.answers.push({
+      questionId: question.id,
+      questionNumber: question.number,
+      prompt: question.prompt,
+      choiceIndex: numericChoice,
+      choiceText: question.options[numericChoice] || '',
+      correctAnswer: question.options[question.correctIndex],
+      correct: isCorrect,
+      points,
+      answeredAt: Date.now()
+    });
 
     socket.emit('student:answerReceived', { choiceIndex: numericChoice });
-    io.to('teachers').emit('game:answerCount', {
-      count: Object.keys(gameState.currentAnswers).length,
-      total: getActivePlayers().length
+    socket.emit('student:score', {
+      score: Math.round(player.score * 100) / 100
     });
+    emitAnswerProgress();
     emitTeacherState();
+    maybeAdvanceAfterAllAnswered();
   }));
 
   socket.on('student:violation', safe(({ playerId, token, reason, type }) => {

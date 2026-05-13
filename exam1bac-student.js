@@ -10,7 +10,7 @@ let studentClass = '';
 let playerId = '';
 let playerToken = '';
 let myScore = 0;
-let totalQuestions = 50;
+let totalQuestions = 20;
 let protectionArmed = false;
 let violationSent = false;
 let removed = false;
@@ -78,11 +78,11 @@ function resetStudentSession(clearForm = false) {
   showScreen('join');
 }
 
-function markAnswerSubmitted(choiceIndex) {
+function markAnswerSubmitted() {
   hasAnswered = true;
-  document.querySelectorAll('#question-options .option').forEach((opt, index) => {
+  document.querySelectorAll('#question-options .option').forEach((opt) => {
     opt.disabled = true;
-    opt.classList.toggle('selected', Number(choiceIndex) === index);
+    opt.classList.remove('selected', 'correct', 'incorrect');
   });
   document.getElementById('answer-status').classList.remove('hidden');
 }
@@ -337,7 +337,7 @@ socket.on('student:joinRejected', ({ message }) => {
   showError(message || 'Could not join. Please try again.');
 });
 
-socket.on('student:joined', ({ id, token, name, number, studentClass: cls, totalQuestions: serverTotalQuestions }) => {
+socket.on('student:joined', ({ id, token, name, number, studentClass: cls, score, totalQuestions: serverTotalQuestions }) => {
   playerId      = id;
   playerToken   = token;
   studentName   = name;
@@ -345,7 +345,7 @@ socket.on('student:joined', ({ id, token, name, number, studentClass: cls, total
   studentClass  = cls;
   totalQuestions = Number(serverTotalQuestions) || totalQuestions;
 
-  updateScore(0);
+  updateScore(score || 0);
 
   // Keep name visible everywhere
   setText('score-name', name);
@@ -398,7 +398,7 @@ socket.on('student:score', ({ score }) => {
 
 socket.on('game:results', (data) => {
   if (removed || !playerToken) return;
-  const result = data.results[playerId];
+  const result = data.results?.[playerId];
   const strip = document.getElementById('result-strip');
 
   if (result) updateScore(result.score);
@@ -406,7 +406,7 @@ socket.on('game:results', (data) => {
   if (result?.correct) {
     strip.className = 'result-strip correct';
     strip.textContent = `✓ Correct! +${formatScore(result.points)} pts`;
-  } else if (result?.noAnswer) {
+  } else if (!result || result?.noAnswer) {
     strip.className = 'result-strip wrong';
     strip.textContent = '✗ No answer submitted.';
   } else {

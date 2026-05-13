@@ -342,6 +342,12 @@ img { display: block; max-width: 100%; }
   border-color: var(--red-border);
 }
 
+.status-pill.allowed {
+  background: var(--teal-bg);
+  color: var(--teal-dark);
+  border-color: var(--teal-border);
+}
+
 /* ─── Question card ───────────────────────────────────────────────────────── */
 .question-card { display: grid; gap: 18px; }
 

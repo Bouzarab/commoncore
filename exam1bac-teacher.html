@@ -39,8 +39,8 @@
                 <span class="label">Removed</span>
               </div>
               <div class="stat">
-                <span class="value">50</span>
-                <span class="label">Questions</span>
+                <span class="value">20</span>
+                <span class="label">Per quiz</span>
               </div>
             </div>
 
@@ -80,7 +80,7 @@
         <div class="panel question-card">
           <div class="question-head">
             <div class="question-meta">
-              <span class="tag" id="question-number">Q1 / 50</span>
+              <span class="tag" id="question-number">Q1 / 20</span>
               <span class="tag blue" id="question-section">Section</span>
             </div>
             <div class="timer-wrap">
@@ -125,6 +125,7 @@
             </div>
 
             <div class="button-row">
+              <button class="btn ghost" id="move-prev-btn">← Previous</button>
               <button class="btn primary" id="move-next-btn">Next question →</button>
               <button class="btn danger" id="show-results-btn">Show results &amp; end quiz</button>
             </div>
@@ -133,6 +134,8 @@
           <div class="panel">
             <h2 class="panel-title">Students</h2>
             <div class="student-list" id="question-student-list"></div>
+            <h2 class="panel-title" style="margin-top:18px;">Removed</h2>
+            <div class="student-list" id="question-removed-list"></div>
           </div>
         </aside>
       </div>
@@ -163,6 +166,7 @@
             </div>
 
             <div class="button-row">
+              <button class="btn ghost" id="results-prev-btn">← Previous</button>
               <button class="btn primary" id="results-next-btn">Next question →</button>
               <button class="btn ghost" id="leaderboard-btn">Show leaderboard</button>
               <button class="btn danger" id="results-end-btn">End quiz</button>
@@ -187,6 +191,7 @@
         <aside class="panel">
           <h2 class="panel-title">Continue</h2>
           <div class="button-row" style="margin-top:0;">
+            <button class="btn ghost" id="leaderboard-prev-btn">← Previous</button>
             <button class="btn primary" id="leaderboard-next-btn">Next question →</button>
             <button class="btn danger" id="leaderboard-end-btn">End quiz</button>
           </div>

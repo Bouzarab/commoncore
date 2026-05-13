@@ -100,7 +100,7 @@ function renderPlayerList(containerId, players, mode) {
     const activeStatus = player.connectionStatus === 'reconnecting' ? 'Reconnecting...' : scoreStr;
     meta.textContent = player.status === 'active'
       ? `${classNum} · ${activeStatus}`
-      : `${classNum} · ${scoreStr} — ${player.removalReason || 'removed'}`;
+      : `${classNum} · ${scoreStr} — ${player.status === 'allowed_back' ? 'can rejoin' : (player.removalReason || 'removed')}`;
     nameWrap.append(nameEl, meta);
 
     const action = document.createElement('button');
@@ -113,10 +113,17 @@ function renderPlayerList(containerId, players, mode) {
           socket.emit('teacher:kickPlayer', { playerId: player.id });
         }
       });
-    } else {
-      action.className = 'status-pill removed';
+    } else if (player.status === 'allowed_back') {
+      action.className = 'status-pill allowed';
       action.style.cursor = 'default';
-      action.textContent = 'Removed';
+      action.textContent = 'Can rejoin';
+    } else {
+      action.className = 'btn ghost';
+      action.style.cssText = 'min-height:34px;padding:4px 10px;font-size:0.8rem;';
+      action.textContent = 'Let back';
+      action.addEventListener('click', () => {
+        socket.emit('teacher:restorePlayer', { playerId: player.id });
+      });
     }
 
     row.append(avatar, nameWrap, action);
@@ -171,11 +178,18 @@ function renderQuestion(question) {
 
   // Hide "Next question" on the last question — there is no next
   const moveNextBtn = document.getElementById('move-next-btn');
+  const movePrevBtn = document.getElementById('move-prev-btn');
   const resultsNextBtn = document.getElementById('results-next-btn');
+  const resultsPrevBtn = document.getElementById('results-prev-btn');
   const leaderboardNextBtn = document.getElementById('leaderboard-next-btn');
+  const leaderboardPrevBtn = document.getElementById('leaderboard-prev-btn');
   const isLast = question.number >= question.total;
+  const isFirst = question.number <= 1;
   [moveNextBtn, resultsNextBtn, leaderboardNextBtn].forEach(btn => {
     if (btn) btn.style.display = isLast ? 'none' : '';
+  });
+  [movePrevBtn, resultsPrevBtn, leaderboardPrevBtn].forEach(btn => {
+    if (btn) btn.style.display = isFirst ? 'none' : '';
   });
 
   setText('question-number', `Q${question.number} / ${question.total}`);
@@ -273,6 +287,7 @@ function applyTeacherState(state) {
   renderPlayerList('lobby-student-list', players, 'active');
   renderPlayerList('lobby-removed-list', players, 'removed');
   renderPlayerList('question-student-list', players, 'active');
+  renderPlayerList('question-removed-list', players, 'removed');
   renderLeaderboard('leaderboard-list', state.leaderboard || []);
   renderLeaderboard('results-leaderboard', state.leaderboard || []);
   renderLeaderboard('final-leaderboard', state.leaderboard || []);
@@ -298,7 +313,7 @@ socket.on('teacher:state', applyTeacherState);
 
 socket.on('game:question', (question) => {
   renderQuestion(question);
-  updateAnswerProgress(0, latestState?.activeCount || 0);
+  updateAnswerProgress(latestState?.answerCount || 0, latestState?.activeCount || 0);
   showScreen('question');
 });
 
@@ -359,6 +374,10 @@ document.getElementById('move-next-btn').addEventListener('click', () => {
   socket.emit('teacher:moveNext');
 });
 
+document.getElementById('move-prev-btn').addEventListener('click', () => {
+  socket.emit('teacher:movePrevious');
+});
+
 // "Show results & end quiz" — ends the entire quiz and shows all final scores
 document.getElementById('show-results-btn').addEventListener('click', () => {
   if (window.confirm('End the quiz now and show all students their final results?')) {
@@ -368,6 +387,10 @@ document.getElementById('show-results-btn').addEventListener('click', () => {
 
 document.getElementById('results-next-btn').addEventListener('click', () => {
   socket.emit('teacher:moveNext');
+});
+
+document.getElementById('results-prev-btn').addEventListener('click', () => {
+  socket.emit('teacher:movePrevious');
 });
 
 document.getElementById('results-end-btn').addEventListener('click', () => {
@@ -380,6 +403,10 @@ document.getElementById('leaderboard-btn').addEventListener('click', () => {
 
 document.getElementById('leaderboard-next-btn').addEventListener('click', () => {
   socket.emit('teacher:moveNext');
+});
+
+document.getElementById('leaderboard-prev-btn').addEventListener('click', () => {
+  socket.emit('teacher:movePrevious');
 });
 
 document.getElementById('leaderboard-end-btn').addEventListener('click', () => {
