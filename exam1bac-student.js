@@ -55,6 +55,38 @@ function updateScore(score) {
   setText('removed-score', `${formatScore(myScore)} / ${MAX_SCORE}`);
 }
 
+function resetStudentSession(clearForm = false) {
+  currentQuestion = null;
+  hasAnswered = false;
+  studentName = '';
+  studentNumber = '';
+  studentClass = '';
+  playerId = '';
+  playerToken = '';
+  protectionArmed = false;
+  violationSent = false;
+  removed = false;
+
+  document.body.classList.remove('protected');
+  document.getElementById('removed-overlay').classList.remove('active');
+  document.getElementById('answer-status').classList.add('hidden');
+  if (clearForm) joinForm.reset();
+  clearError();
+  updateScore(0);
+  setText('score-name', 'Student');
+  setText('result-name', 'Student');
+  showScreen('join');
+}
+
+function markAnswerSubmitted(choiceIndex) {
+  hasAnswered = true;
+  document.querySelectorAll('#question-options .option').forEach((opt, index) => {
+    opt.disabled = true;
+    opt.classList.toggle('selected', Number(choiceIndex) === index);
+  });
+  document.getElementById('answer-status').classList.remove('hidden');
+}
+
 // ─── Render question ──────────────────────────────────────────────────────────
 function renderQuestion(question) {
   currentQuestion = question;
@@ -138,18 +170,12 @@ function updateTimer(seconds) {
 // ─── Submit answer ────────────────────────────────────────────────────────────
 function submitAnswer(choiceIndex, btn) {
   if (hasAnswered || !currentQuestion || removed) return;
-  hasAnswered = true;
-
-  document.querySelectorAll('#question-options .option').forEach(opt => {
-    opt.disabled = true;
-    opt.classList.remove('selected');
-  });
-  btn.classList.add('selected');
-  document.getElementById('answer-status').classList.remove('hidden');
+  markAnswerSubmitted(choiceIndex);
 
   socket.emit('student:answer', {
     questionId: currentQuestion.id,
-    choiceIndex
+    choiceIndex,
+    token: playerToken
   });
 }
 
@@ -299,6 +325,12 @@ joinForm.addEventListener('submit', (e) => {
 });
 
 // ─── Socket events ────────────────────────────────────────────────────────────
+socket.on('connect', () => {
+  if (playerToken && studentName && !removed) {
+    socket.emit('student:resume', { token: playerToken });
+  }
+});
+
 socket.on('student:joinRejected', ({ message }) => {
   // Bring the form back and show the error
   showScreen('join');
@@ -326,17 +358,38 @@ socket.on('student:joined', ({ id, token, name, number, studentClass: cls, total
   armProtection();
 });
 
+socket.on('student:resumed', ({ id, token, name, number, studentClass: cls, score, totalQuestions: serverTotalQuestions }) => {
+  playerId = id;
+  playerToken = token;
+  studentName = name;
+  studentNumber = number;
+  studentClass = cls;
+  totalQuestions = Number(serverTotalQuestions) || totalQuestions;
+
+  setText('score-name', name);
+  setText('result-name', name);
+  setText('waiting-name', name);
+  setText('waiting-detail', `${cls} · #${number}`);
+  setText('waiting-status', 'Connection restored. Waiting for the quiz...');
+  updateScore(score);
+  armProtection();
+});
+
 socket.on('game:question', (question) => {
-  if (removed) return;
+  if (removed || !playerToken) return;
   renderQuestion(question);
 });
 
 socket.on('game:timer', ({ timeRemaining }) => {
-  if (!removed) updateTimer(timeRemaining);
+  if (removed) return;
+  if (!currentQuestion && playerToken) {
+    socket.emit('student:sync', { token: playerToken });
+  }
+  updateTimer(timeRemaining);
 });
 
-socket.on('student:answerReceived', () => {
-  document.getElementById('answer-status').classList.remove('hidden');
+socket.on('student:answerReceived', ({ choiceIndex } = {}) => {
+  markAnswerSubmitted(choiceIndex);
 });
 
 socket.on('student:score', ({ score }) => {
@@ -344,7 +397,7 @@ socket.on('student:score', ({ score }) => {
 });
 
 socket.on('game:results', (data) => {
-  if (removed) return;
+  if (removed || !playerToken) return;
   const result = data.results[playerId];
   const strip = document.getElementById('result-strip');
 
@@ -366,13 +419,13 @@ socket.on('game:results', (data) => {
 });
 
 socket.on('game:leaderboard', ({ leaderboard }) => {
-  if (removed) return;
+  if (removed || !playerToken) return;
   renderLeaderboard('leaderboard-list', leaderboard || []);
   showScreen('leaderboard');
 });
 
 socket.on('game:finished', ({ leaderboard }) => {
-  if (removed) return;
+  if (removed || !playerToken) return;
 
   // Find the student's own entry for the summary
   const me = leaderboard.find(p => p.id === playerId);
@@ -390,7 +443,11 @@ socket.on('game:finished', ({ leaderboard }) => {
   showScreen('finished');
 });
 
-socket.on('game:reset', () => {
+socket.on('game:reset', ({ clearStudents } = {}) => {
+  if (clearStudents) {
+    resetStudentSession(true);
+    return;
+  }
   if (removed) return;
   updateScore(0);
   violationSent = false;

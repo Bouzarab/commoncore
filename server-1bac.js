@@ -19,6 +19,7 @@ const HOST = '0.0.0.0';
 const TOTAL_SCORE = 20;
 const STANDARD_TIME = 40;
 const IMAGE_TIME = 35;
+const DISCONNECT_GRACE_MS = 30000;
 
 const VALID_CLASSES = ['TCSF3', 'TCSF4', 'TCSF5'];
 
@@ -347,6 +348,19 @@ function getActivePlayers() {
   return Object.values(gameState.players).filter(p => p.status === 'active');
 }
 
+function findPlayerEntryByToken(token) {
+  if (!token) return null;
+  return Object.entries(gameState.players).find(([, player]) => player.token === token) || null;
+}
+
+function clearPendingDisconnect(token) {
+  const timer = token ? gameState.pendingDisconnects[token] : null;
+  if (timer) {
+    clearTimeout(timer);
+    delete gameState.pendingDisconnects[token];
+  }
+}
+
 function getLeaderboard() {
   return Object.values(gameState.players)
     .map(p => ({
@@ -369,6 +383,7 @@ function publicPlayer(player) {
     studentClass: player.studentClass || '',
     score: Math.round(player.score * 100) / 100,
     status: player.status,
+    connectionStatus: player.connectionStatus || 'online',
     removalReason: player.removalReason || '',
     removalType: player.removalType || ''
   };
@@ -398,6 +413,48 @@ function emitTeacherState() {
   io.to('teachers').emit('teacher:state', getTeacherState());
 }
 
+function currentTeacherQuestion() {
+  const qi = gameState.currentQuestionIndex;
+  const qs = gameState.shuffledQuestions;
+  return qi >= 0 && qs && qi < qs.length ? qs[qi] : null;
+}
+
+function emitStudentCurrentState(socket, player) {
+  if (!player || player.status !== 'active') return;
+
+  socket.emit('student:score', {
+    score: Math.round(player.score * 100) / 100
+  });
+
+  if (gameState.phase === 'question') {
+    const question = currentTeacherQuestion();
+    if (!question) return;
+
+    socket.emit('game:question', publicQuestion(question));
+    socket.emit('game:timer', { timeRemaining: gameState.timeRemaining });
+
+    const answer = gameState.currentAnswers[player.id];
+    if (answer) {
+      socket.emit('student:answerReceived', { choiceIndex: answer.choiceIndex });
+    }
+    return;
+  }
+
+  if (gameState.phase === 'results' && gameState.lastResultsPayload) {
+    socket.emit('game:results', gameState.lastResultsPayload);
+    return;
+  }
+
+  if (gameState.phase === 'leaderboard') {
+    socket.emit('game:leaderboard', { leaderboard: getLeaderboard() });
+    return;
+  }
+
+  if (gameState.phase === 'finished') {
+    socket.emit('game:finished', { leaderboard: getLeaderboard() });
+  }
+}
+
 // ─── Game state ───────────────────────────────────────────────────────────────
 const gameState = {
   phase: 'lobby',
@@ -409,7 +466,9 @@ const gameState = {
   timeRemaining: 0,
   timer: null,
   scoredQuestionIds: new Set(),
-  shuffledQuestions: null    // populated when quiz starts
+  shuffledQuestions: null,    // populated when quiz starts
+  lastResultsPayload: null,
+  pendingDisconnects: {}
 };
 
 // ─── Timer ────────────────────────────────────────────────────────────────────
@@ -438,6 +497,7 @@ function startTimer(question) {
 function startNextQuestion() {
   clearTimer();
   gameState.currentQuestionIndex += 1;
+  gameState.lastResultsPayload = null;
 
   // Shuffle all questions once when quiz starts
   if (gameState.currentQuestionIndex === 0 && !gameState.shuffledQuestions) {
@@ -544,6 +604,7 @@ function finishCurrentQuestion(showResults) {
     },
     leaderboard: getLeaderboard()
   };
+  gameState.lastResultsPayload = payload;
 
   if (showResults) {
     io.emit('game:results', payload);
@@ -566,6 +627,7 @@ function markPlayerRemoved(playerId, reason, type, token, shouldDisconnect = tru
   const player = gameState.players[playerId];
   if (!player || player.status !== 'active') return false;
   if (token && player.token !== token) return false;
+  clearPendingDisconnect(player.token);
 
   player.status = 'removed';
   player.removalReason = reason || 'Removed from the quiz';
@@ -610,15 +672,8 @@ function markPlayerRemoved(playerId, reason, type, token, shouldDisconnect = tru
 
 function resetQuiz() {
   clearTimer();
-  for (const player of Object.values(gameState.players)) {
-    if (player.status === 'active') {
-      player.score = 0;
-      player.answers = [];
-    }
-  }
-  for (const [id, player] of Object.entries(gameState.players)) {
-    if (player.status !== 'active') delete gameState.players[id];
-  }
+  Object.values(gameState.pendingDisconnects).forEach(clearTimeout);
+  gameState.players = {};
 
   gameState.bannedNames.clear();
   gameState.phase = 'lobby';
@@ -628,8 +683,73 @@ function resetQuiz() {
   gameState.timeRemaining = 0;
   gameState.scoredQuestionIds.clear();
   gameState.shuffledQuestions = null;
+  gameState.lastResultsPayload = null;
+  gameState.pendingDisconnects = {};
 
-  io.emit('game:reset');
+  io.emit('game:reset', { clearStudents: true });
+  emitTeacherState();
+}
+
+function resumePlayer(socket, token) {
+  const entry = findPlayerEntryByToken(String(token || ''));
+  if (!entry) return null;
+
+  const [oldSocketId, player] = entry;
+  if (player.status !== 'active') return null;
+
+  clearPendingDisconnect(player.token);
+
+  if (oldSocketId !== socket.id) {
+    delete gameState.players[oldSocketId];
+    player.id = socket.id;
+    gameState.players[socket.id] = player;
+
+    if (gameState.currentAnswers[oldSocketId]) {
+      gameState.currentAnswers[socket.id] = gameState.currentAnswers[oldSocketId];
+      delete gameState.currentAnswers[oldSocketId];
+    }
+
+    if (gameState.lastResultsPayload?.results?.[oldSocketId]) {
+      gameState.lastResultsPayload.results[socket.id] = gameState.lastResultsPayload.results[oldSocketId];
+      delete gameState.lastResultsPayload.results[oldSocketId];
+    }
+  }
+
+  player.connectionStatus = 'online';
+  player.disconnectedAt = null;
+  socket.data.playerToken = player.token;
+
+  socket.emit('student:resumed', {
+    id: socket.id,
+    token: player.token,
+    name: player.name,
+    number: player.number,
+    studentClass: player.studentClass,
+    score: Math.round(player.score * 100) / 100,
+    totalQuestions: questions.length
+  });
+
+  emitStudentCurrentState(socket, player);
+  io.to('teachers').emit('game:answerCount', {
+    count: Object.keys(gameState.currentAnswers).length,
+    total: getActivePlayers().length
+  });
+  emitTeacherState();
+  return player;
+}
+
+function scheduleDisconnectRemoval(playerId) {
+  const player = gameState.players[playerId];
+  if (!player || player.status !== 'active') return;
+
+  player.connectionStatus = 'reconnecting';
+  player.disconnectedAt = Date.now();
+  clearPendingDisconnect(player.token);
+
+  gameState.pendingDisconnects[player.token] = setTimeout(() => {
+    markPlayerRemoved(player.id, 'Left the quiz or lost connection', 'disconnect', null, false);
+  }, DISCONNECT_GRACE_MS);
+
   emitTeacherState();
 }
 
@@ -685,6 +805,20 @@ io.on('connection', (socket) => {
     markPlayerRemoved(playerId, 'Removed by teacher', 'teacher', null, true);
   }));
 
+  socket.on('student:resume', safe(({ token }) => {
+    resumePlayer(socket, token);
+  }));
+
+  socket.on('student:sync', safe(({ token }) => {
+    const player = resumePlayer(socket, token);
+    if (player) return;
+
+    const currentPlayer = gameState.players[socket.id];
+    if (currentPlayer && currentPlayer.status === 'active') {
+      emitStudentCurrentState(socket, currentPlayer);
+    }
+  }));
+
   // ── Student events ──
   socket.on('student:join', safe(({ name, number, studentClass }) => {
     const cleanName = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
@@ -737,6 +871,7 @@ io.on('connection', (socket) => {
     }
 
     const token = crypto.randomBytes(18).toString('hex');
+    socket.data.playerToken = token;
     gameState.players[socket.id] = {
       id: socket.id,
       token,
@@ -748,6 +883,7 @@ io.on('connection', (socket) => {
       score: 0,
       answers: [],
       status: 'active',
+      connectionStatus: 'online',
       joinedAt: Date.now()
     };
 
@@ -763,8 +899,11 @@ io.on('connection', (socket) => {
     emitTeacherState();
   }));
 
-  socket.on('student:answer', safe(({ questionId, choiceIndex }) => {
-    const player = gameState.players[socket.id];
+  socket.on('student:answer', safe(({ questionId, choiceIndex, token }) => {
+    let player = gameState.players[socket.id];
+    if (!player && token) {
+      player = resumePlayer(socket, token);
+    }
     const qs = gameState.shuffledQuestions;
     const question = qs ? qs[gameState.currentQuestionIndex] : null;
     if (!player || player.status !== 'active') return;
@@ -793,7 +932,7 @@ io.on('connection', (socket) => {
     try {
       const player = gameState.players[socket.id];
       if (player && player.status === 'active' && gameState.phase !== 'finished') {
-        markPlayerRemoved(socket.id, 'Left the quiz or lost connection', 'disconnect', null, false);
+        scheduleDisconnectRemoval(socket.id);
       }
     } catch (err) {
       console.error('disconnect error:', err);

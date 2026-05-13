@@ -97,8 +97,9 @@ function renderPlayerList(containerId, players, mode) {
     meta.className = 'student-meta';
     const classNum = [player.studentClass, player.number ? `#${player.number}` : ''].filter(Boolean).join(' · ');
     const scoreStr = `${formatScore(player.score)} / ${MAX_SCORE}`;
+    const activeStatus = player.connectionStatus === 'reconnecting' ? 'Reconnecting...' : scoreStr;
     meta.textContent = player.status === 'active'
-      ? `${classNum} · ${scoreStr}`
+      ? `${classNum} · ${activeStatus}`
       : `${classNum} · ${scoreStr} — ${player.removalReason || 'removed'}`;
     nameWrap.append(nameEl, meta);
 
@@ -349,7 +350,7 @@ document.getElementById('restart-btn').addEventListener('click', () => {
 });
 
 document.getElementById('final-restart-btn').addEventListener('click', () => {
-  if (window.confirm('Start a new quiz session? All current scores will be cleared.')) {
+  if (window.confirm('Start a new quiz session? This removes all students and clears all scores.')) {
     socket.emit('teacher:restart');
   }
 });
