@@ -46,15 +46,14 @@ app.get('/exam1bac/export-results', (req, res) => {
     return res.status(404).json({ error: 'No student data available.' });
   }
 
-  const qs = gameState.shuffledQuestions || questions;
+  const questionCount = questions.length;
 
   // Header row
   const header = ['Name', 'Number', 'Class'];
-  qs.forEach((q, i) => {
-    const label = q.prompt.length > 55 ? q.prompt.slice(0, 52) + '...' : q.prompt;
-    header.push(`Q${i + 1}: ${label}`);
-  });
-  header.push(`Score (/${TOTAL_SCORE})`, `Correct (/${qs.length})`, 'Status');
+  for (let i = 0; i < questionCount; i++) {
+    header.push(`Q${i + 1}`);
+  }
+  header.push(`Score (/${TOTAL_SCORE})`, `Correct (/${questionCount})`, 'Status');
 
   const rows = [header];
 
@@ -73,14 +72,14 @@ app.get('/exam1bac/export-results', (req, res) => {
     ];
 
     let correctCount = 0;
-    for (let i = 0; i < qs.length; i++) {
+    for (let i = 0; i < questionCount; i++) {
       const qNum = i + 1;
       const ans = player.answers.find(a => a.questionNumber === qNum);
       if (!ans || ans.choiceIndex === null) {
         row.push('— No answer');
       } else {
         const prefix = ans.correct ? '✓' : '✗';
-        row.push(`${prefix} ${ans.choiceText || ''}`);
+        row.push(`${prefix} ${ans.prompt || ans.questionId}: ${ans.choiceText || ''}`);
         if (ans.correct) correctCount++;
       }
     }
@@ -98,7 +97,7 @@ app.get('/exam1bac/export-results', (req, res) => {
     { wch: 28 },
     { wch: 10 },
     { wch: 12 },
-    ...qs.map(() => ({ wch: 32 })),
+    ...Array.from({ length: questionCount }, () => ({ wch: 42 })),
     { wch: 12 },
     { wch: 12 },
     { wch: 10 }
@@ -131,80 +130,136 @@ const questionsRaw = [
   // Section A - Jobs and occupations
   {
     id: 'A1', section: 'Jobs and Occupations',
-    prompt: 'What is this job?',
-    image: '/exam1bac-assets/common-core/job-pilot.png',
-    imageAlt: 'A pilot',
-    options: ['pilot', 'postman', 'mechanic'],
+    prompt: 'This person delivers letters. He is a:',
+    image: '/exam1bac-assets/common-core/job-postman.png',
+    imageAlt: 'A postman carrying letters',
+    options: ['postman', 'pilot', 'dentist'],
     correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
     id: 'A2', section: 'Jobs and Occupations',
-    prompt: 'What is this job?',
-    image: '/exam1bac-assets/common-core/job-dentist.png',
-    imageAlt: 'A dentist looking after teeth',
-    options: ['dentist', 'doctor', 'teacher'],
+    prompt: 'This person flies planes. He is a:',
+    image: '/exam1bac-assets/common-core/job-pilot.png',
+    imageAlt: 'A pilot',
+    options: ['pilot', 'mechanic', 'carpenter'],
     correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
     id: 'A3', section: 'Jobs and Occupations',
-    prompt: 'What is this job?',
+    prompt: 'This person works with wood. He is a:',
     image: '/exam1bac-assets/common-core/job-carpenter.png',
     imageAlt: 'A carpenter carrying wood',
-    options: ['carpenter', 'butcher', 'bus driver'],
+    options: ['carpenter', 'dentist', 'author'],
     correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
     id: 'A4', section: 'Jobs and Occupations',
-    prompt: 'What is this job?',
-    image: '/exam1bac-assets/common-core/job-mechanic.png',
-    imageAlt: 'A mechanic with tools',
-    options: ['mechanic', 'painter', 'pilot'],
+    prompt: 'This person looks after people\'s teeth. She is a:',
+    image: '/exam1bac-assets/common-core/job-dentist.png',
+    imageAlt: 'A dentist looking after teeth',
+    options: ['dentist', 'doctor', 'painter'],
     correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
     id: 'A5', section: 'Jobs and Occupations',
-    prompt: 'What is this job?',
-    image: '/exam1bac-assets/common-core/job-painter.png',
-    imageAlt: 'A painter holding a brush',
-    options: ['painter', 'carpenter', 'dentist'],
+    prompt: 'This person repairs cars. He is a:',
+    image: '/exam1bac-assets/common-core/job-mechanic.png',
+    imageAlt: 'A mechanic with tools',
+    options: ['mechanic', 'postman', 'gardener'],
     correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
     id: 'A6', section: 'Jobs and Occupations',
-    prompt: 'A dentist __________ people\'s teeth.',
-    options: ['looks after', 'drives', 'writes'],
-    correctIndex: 0, timeLimit: STANDARD_TIME
+    prompt: 'This person paints walls. He is a:',
+    image: '/exam1bac-assets/common-core/job-painter.png',
+    imageAlt: 'A painter holding a brush',
+    options: ['painter', 'bus driver', 'postman'],
+    correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
     id: 'A7', section: 'Jobs and Occupations',
-    prompt: 'A bus driver __________ a bus.',
-    options: ['drives', 'grows', 'arrests'],
+    prompt: 'A gardener __________ plants.',
+    options: ['grows', 'drives', 'arrests'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'A8', section: 'Jobs and Occupations',
+    prompt: 'A bus driver __________ a bus.',
+    options: ['drives', 'writes', 'looks after'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'A9', section: 'Jobs and Occupations',
     prompt: 'A police officer __________ criminals.',
-    options: ['arrests', 'writes', 'grows'],
+    options: ['arrests', 'grows', 'drives'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'A10', section: 'Jobs and Occupations',
+    prompt: 'An author __________ books.',
+    options: ['writes', 'arrests', 'drives'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'A11', section: 'Jobs and Occupations',
+    prompt: 'A doctor __________ sick people.',
+    options: ['helps', 'writes', 'grows'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'A12', section: 'Jobs and Occupations',
+    prompt: 'A dentist looks after:',
+    options: ['people\'s teeth', 'a bus', 'plants'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
 
   // Section B - Time prepositions
   {
     id: 'B1', section: 'Time Prepositions',
-    prompt: 'My birthday is __________ July.',
+    prompt: 'I get up early __________ the morning.',
     options: ['in', 'on', 'at'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'B2', section: 'Time Prepositions',
-    prompt: 'The English class starts __________ 8 o\'clock.',
-    options: ['at', 'in', 'on'],
+    prompt: 'We have English __________ Monday.',
+    options: ['on', 'in', 'at'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'B3', section: 'Time Prepositions',
-    prompt: 'We do not study __________ Sundays.',
+    prompt: 'The shop opens __________ noon.',
+    options: ['at', 'in', 'on'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'B4', section: 'Time Prepositions',
+    prompt: 'My birthday is __________ April.',
+    options: ['in', 'on', 'at'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'B5', section: 'Time Prepositions',
+    prompt: 'The test is __________ Friday.',
     options: ['on', 'in', 'at'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'B6', section: 'Time Prepositions',
+    prompt: 'The movie starts __________ 9:30.',
+    options: ['at', 'on', 'in'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'B7', section: 'Time Prepositions',
+    prompt: 'We go to the beach __________ summer.',
+    options: ['in', 'on', 'at'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'B8', section: 'Time Prepositions',
+    prompt: 'I visit my grandparents __________ the weekend.',
+    options: ['at', 'in', 'on'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
 
@@ -213,39 +268,99 @@ const questionsRaw = [
     id: 'C1', section: 'Adverbs of Frequency',
     prompt: 'Put "always" in the right place.',
     options: [
-      'Do you always exercise on Saturdays?',
-      'Do always you exercise on Saturdays?',
-      'Always do you exercise on Saturdays?'
+      'She is always happy.',
+      'She always is happy.',
+      'Always she is happy.'
     ],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'C2', section: 'Adverbs of Frequency',
-    prompt: 'Put "often" in the right place.',
+    prompt: 'Put "never" in the right place.',
     options: [
-      'He often listens to the radio.',
-      'He listens often to the radio.',
-      'Often he listens to the radio.'
+      'He never drinks coffee.',
+      'He drinks never coffee.',
+      'Never he drinks coffee.'
     ],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'C3', section: 'Adverbs of Frequency',
-    prompt: 'Put "ever" in the right place.',
+    prompt: 'Put "often" in the right place.',
     options: [
-      'Do they ever read books?',
-      'Ever do they read books?',
-      'Do ever they read books?'
+      'Do you often play football?',
+      'Do often you play football?',
+      'Often do you play football?'
     ],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'C4', section: 'Adverbs of Frequency',
+    prompt: 'Put "ever" in the right place.',
+    options: [
+      'Are they ever late?',
+      'Are ever they late?',
+      'Ever are they late?'
+    ],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'C5', section: 'Adverbs of Frequency',
+    prompt: 'Put "always" in the right place.',
+    options: [
+      'We always do our homework.',
+      'We do always our homework.',
+      'Always we do our homework.'
+    ],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'C6', section: 'Adverbs of Frequency',
     prompt: 'Put "never" in the right place.',
     options: [
-      'They never read books.',
-      'They read never books.',
-      'Never they read books.'
+      'I am never late.',
+      'I never am late.',
+      'Never I am late.'
+    ],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'C7', section: 'Adverbs of Frequency',
+    prompt: 'Put "often" in the right place.',
+    options: [
+      'They often watch TV.',
+      'They watch often TV.',
+      'Often they watch TV.'
+    ],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'C8', section: 'Adverbs of Frequency',
+    prompt: 'Put "ever" in the right place.',
+    options: [
+      'Does she ever cook dinner?',
+      'Does ever she cook dinner?',
+      'Ever does she cook dinner?'
+    ],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'C9', section: 'Adverbs of Frequency',
+    prompt: 'Put "sometimes" in the right place.',
+    options: [
+      'He sometimes plays basketball.',
+      'He plays sometimes basketball.',
+      'Sometimes he plays basketball.'
+    ],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'C10', section: 'Adverbs of Frequency',
+    prompt: 'Put "usually" in the right place.',
+    options: [
+      'My sister usually walks to school.',
+      'My sister walks usually to school.',
+      'Usually my sister walks to school.'
     ],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
@@ -253,36 +368,126 @@ const questionsRaw = [
   // Section D - Some and any
   {
     id: 'D1', section: 'Some / Any',
-    prompt: 'We have lots of potatoes. Let\'s make __________ potato salad!',
+    prompt: 'There are __________ apples in the kitchen.',
     options: ['some', 'any'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'D2', section: 'Some / Any',
-    prompt: 'Do we have __________ mayonnaise?',
+    prompt: 'There aren\'t __________ onions in the fridge.',
     options: ['any', 'some'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
     id: 'D3', section: 'Some / Any',
-    prompt: 'I do not want __________ onions.',
+    prompt: 'Can we buy __________ mayonnaise, please?',
+    options: ['some', 'any'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'D4', section: 'Some / Any',
+    prompt: 'I don\'t want __________ celery in my salad.',
     options: ['any', 'some'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'D5', section: 'Some / Any',
+    prompt: 'Do we have __________ bananas?',
+    options: ['any', 'some'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'D6', section: 'Some / Any',
+    prompt: 'Let\'s put __________ apples in the salad.',
+    options: ['some', 'any'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'D7', section: 'Some / Any',
+    prompt: 'There isn\'t __________ fish in the store.',
+    options: ['any', 'some'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'D8', section: 'Some / Any',
+    prompt: 'We need __________ milk for breakfast.',
+    options: ['some', 'any'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'D9', section: 'Some / Any',
+    prompt: 'Are there __________ eggs in the bowl?',
+    options: ['any', 'some'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'D10', section: 'Some / Any',
+    prompt: 'I have __________ potatoes at home.',
+    options: ['some', 'any'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
 
   // Section E - Shopping, colors, materials and items
   {
     id: 'E1', section: 'Shopping Categories',
-    prompt: 'Which shop category do these items belong to?',
+    prompt: 'These items belong to the:',
     image: '/exam1bac-assets/common-core/shop-jewelry.png',
     imageAlt: 'Watches, earrings, a necklace and a ring',
     options: ['jewelry store', 'food store', 'furniture store'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'E2', section: 'Colors, Materials and Items',
-    prompt: 'The word "cotton" is a:',
-    options: ['material', 'color', 'shop'],
+    id: 'E2', section: 'Shopping Categories',
+    prompt: 'Bananas, chicken, milk and beef belong to the:',
+    options: ['food store', 'clothing store', 'utensils store'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E3', section: 'Colors, Materials and Items',
+    prompt: 'Blue, yellow and red are:',
+    options: ['colors', 'materials', 'items'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E4', section: 'Shopping Categories',
+    prompt: 'A bowl, a spoon, a fork and a knife belong to the:',
+    options: ['utensils store', 'jewelry store', 'clothing store'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E5', section: 'Shopping Categories',
+    prompt: 'A bed, a chair and a pillow belong to the:',
+    options: ['furniture store', 'food store', 'jewelry store'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E6', section: 'Shopping Categories',
+    prompt: 'Shoes, a shirt and a tie belong to the:',
+    options: ['clothing store', 'utensils store', 'food store'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E7', section: 'Shopping Categories',
+    prompt: 'A ring, a necklace and earrings belong to the:',
+    options: ['jewelry store', 'furniture store', 'food store'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E8', section: 'Colors, Materials and Items',
+    prompt: 'Cotton, wool and silk are:',
+    options: ['materials', 'colors', 'shops'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E9', section: 'Colors, Materials and Items',
+    prompt: 'Dress, skirt and sweater are:',
+    options: ['items', 'colors', 'materials'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+  {
+    id: 'E10', section: 'Colors, Materials and Items',
+    prompt: 'Black, white and green are:',
+    options: ['colors', 'materials', 'stores'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   }
 ];
@@ -312,8 +517,18 @@ function isEnglishOnly(name) {
   return /^[a-zA-Z\s\-'\.]+$/.test(name);
 }
 
-/** Fisher-Yates shuffle of a question's options, returns new question object */
-function shuffleQuestion(question) {
+/** Fisher-Yates shuffle, returns a new array */
+function shuffleArray(items) {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/** Shuffle a question's options, returns new question object */
+function shuffleQuestionOptions(question) {
   const indices = question.options.map((_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -324,11 +539,37 @@ function shuffleQuestion(question) {
   return { ...question, options: shuffledOptions, correctIndex: newCorrectIndex };
 }
 
+function buildStudentQuestionSet() {
+  return shuffleArray(questions).map(q => shuffleQuestionOptions(q));
+}
+
+function questionForSlot(question, slotIndex) {
+  return {
+    ...question,
+    number: slotIndex + 1,
+    total: questions.length,
+    timeLimit: STANDARD_TIME
+  };
+}
+
+function ensureStudentQuestionSet(player) {
+  if (!player.questionSet || player.questionSet.length !== questions.length) {
+    player.questionSet = buildStudentQuestionSet();
+  }
+  return player.questionSet;
+}
+
+function getPlayerQuestion(player, slotIndex = gameState.currentQuestionIndex) {
+  if (!player || slotIndex < 0 || slotIndex >= questions.length) return null;
+  const questionSet = ensureStudentQuestionSet(player);
+  return questionForSlot(questionSet[slotIndex], slotIndex);
+}
+
 function publicQuestion(question) {
   return {
     id: question.id,
     number: question.number,
-    total: questions.length,
+    total: question.total || questions.length,
     section: question.section,
     prompt: question.prompt,
     passage: question.passage || null,
@@ -340,8 +581,21 @@ function publicQuestion(question) {
   };
 }
 
-function teacherQuestion(question) {
-  return { ...publicQuestion(question), correctIndex: question.correctIndex };
+function teacherSlotQuestion(slotIndex = gameState.currentQuestionIndex) {
+  const slotNumber = Math.max(0, slotIndex) + 1;
+  return {
+    id: `slot-${slotNumber}`,
+    number: slotNumber,
+    total: questions.length,
+    section: 'Randomized Quiz',
+    prompt: `Question ${slotNumber} of ${questions.length}: each student is seeing a different randomized question.`,
+    passage: null,
+    image: null,
+    imageAlt: '',
+    options: ['Students have individual questions and shuffled choices.'],
+    points: POINTS_PER_QUESTION,
+    timeLimit: STANDARD_TIME
+  };
 }
 
 function getActivePlayers() {
@@ -391,8 +645,7 @@ function publicPlayer(player) {
 
 function getTeacherState() {
   const qi = gameState.currentQuestionIndex;
-  const qs = gameState.shuffledQuestions;
-  const currentQuestion = qi >= 0 && qs && qi < qs.length ? teacherQuestion(qs[qi]) : null;
+  const currentQuestion = qi >= 0 && qi < questions.length ? teacherSlotQuestion(qi) : null;
   const players = Object.fromEntries(
     Object.entries(gameState.players).map(([id, p]) => [id, publicPlayer(p)])
   );
@@ -413,12 +666,6 @@ function emitTeacherState() {
   io.to('teachers').emit('teacher:state', getTeacherState());
 }
 
-function currentTeacherQuestion() {
-  const qi = gameState.currentQuestionIndex;
-  const qs = gameState.shuffledQuestions;
-  return qi >= 0 && qs && qi < qs.length ? qs[qi] : null;
-}
-
 function emitStudentCurrentState(socket, player) {
   if (!player || player.status !== 'active') return;
 
@@ -427,7 +674,7 @@ function emitStudentCurrentState(socket, player) {
   });
 
   if (gameState.phase === 'question') {
-    const question = currentTeacherQuestion();
+    const question = getPlayerQuestion(player);
     if (!question) return;
 
     socket.emit('game:question', publicQuestion(question));
@@ -466,7 +713,6 @@ const gameState = {
   timeRemaining: 0,
   timer: null,
   scoredQuestionIds: new Set(),
-  shuffledQuestions: null,    // populated when quiz starts
   lastResultsPayload: null,
   pendingDisconnects: {}
 };
@@ -499,42 +745,45 @@ function startNextQuestion() {
   gameState.currentQuestionIndex += 1;
   gameState.lastResultsPayload = null;
 
-  // Shuffle all questions once when quiz starts
-  if (gameState.currentQuestionIndex === 0 && !gameState.shuffledQuestions) {
-    gameState.shuffledQuestions = questions.map(q => shuffleQuestion(q));
-  }
-
   if (gameState.currentQuestionIndex >= questions.length) {
     finishQuiz();
     return;
   }
 
-  const question = gameState.shuffledQuestions[gameState.currentQuestionIndex];
   gameState.phase = 'question';
   gameState.currentAnswers = {};
   gameState.questionStartedAt = Date.now();
-  gameState.timeRemaining = question.timeLimit;
+  gameState.timeRemaining = STANDARD_TIME;
 
-  io.emit('game:question', publicQuestion(question));
+  for (const player of getActivePlayers()) {
+    const studentQuestion = getPlayerQuestion(player);
+    if (studentQuestion) {
+      io.to(player.id).emit('game:question', publicQuestion(studentQuestion));
+    }
+  }
+  io.to('teachers').emit('game:question', teacherSlotQuestion());
   io.emit('game:answerCount', { count: 0, total: getActivePlayers().length });
   emitTeacherState();
-  startTimer(question);
+  startTimer({ timeLimit: STANDARD_TIME });
 }
 
 function finishCurrentQuestion(showResults) {
   if (gameState.phase !== 'question') return null;
 
   clearTimer();
-  const question = gameState.shuffledQuestions[gameState.currentQuestionIndex];
+  const slotIndex = gameState.currentQuestionIndex;
+  const slotKey = `slot-${slotIndex + 1}`;
   const results = {};
   let correctCount = 0;
   let totalAnswered = 0;
 
-  if (!gameState.scoredQuestionIds.has(question.id)) {
+  if (!gameState.scoredQuestionIds.has(slotKey)) {
     // Score players who answered
     for (const [playerId, answer] of Object.entries(gameState.currentAnswers)) {
       const player = gameState.players[playerId];
       if (!player) continue;
+      const question = getPlayerQuestion(player, slotIndex);
+      if (!question) continue;
       totalAnswered += 1;
       const isCorrect = Number(answer.choiceIndex) === question.correctIndex;
       const points = isCorrect ? question.points : 0;
@@ -545,8 +794,10 @@ function finishCurrentQuestion(showResults) {
       player.answers.push({
         questionId: question.id,
         questionNumber: question.number,
+        prompt: question.prompt,
         choiceIndex: answer.choiceIndex,
         choiceText: question.options[answer.choiceIndex] || '',
+        correctAnswer: question.options[question.correctIndex],
         correct: isCorrect,
         points
       });
@@ -554,18 +805,23 @@ function finishCurrentQuestion(showResults) {
         correct: isCorrect,
         points,
         score: Math.round(player.score * 100) / 100,
-        choiceIndex: answer.choiceIndex
+        choiceIndex: answer.choiceIndex,
+        correctAnswer: question.options[question.correctIndex]
       };
     }
 
     // Record no-answer for active players who didn't answer
     for (const player of getActivePlayers()) {
       if (!results[player.id]) {
+        const question = getPlayerQuestion(player, slotIndex);
+        if (!question) continue;
         player.answers.push({
           questionId: question.id,
           questionNumber: question.number,
+          prompt: question.prompt,
           choiceIndex: null,
           choiceText: null,
+          correctAnswer: question.options[question.correctIndex],
           correct: false,
           points: 0
         });
@@ -573,12 +829,13 @@ function finishCurrentQuestion(showResults) {
           correct: false,
           points: 0,
           score: Math.round(player.score * 100) / 100,
-          noAnswer: true
+          noAnswer: true,
+          correctAnswer: question.options[question.correctIndex]
         };
       }
     }
 
-    gameState.scoredQuestionIds.add(question.id);
+    gameState.scoredQuestionIds.add(slotKey);
   }
 
   // Push updated scores to each student
@@ -591,10 +848,10 @@ function finishCurrentQuestion(showResults) {
   gameState.phase = showResults ? 'results' : 'closed';
 
   const payload = {
-    questionId: question.id,
-    questionNumber: question.number,
-    correctAnswer: question.options[question.correctIndex],
-    correctIndex: question.correctIndex,
+    questionId: slotKey,
+    questionNumber: slotIndex + 1,
+    correctAnswer: 'Each student had a different question.',
+    correctIndex: null,
     results,
     stats: {
       totalAnswered,
@@ -682,7 +939,6 @@ function resetQuiz() {
   gameState.questionStartedAt = null;
   gameState.timeRemaining = 0;
   gameState.scoredQuestionIds.clear();
-  gameState.shuffledQuestions = null;
   gameState.lastResultsPayload = null;
   gameState.pendingDisconnects = {};
 
@@ -882,6 +1138,7 @@ io.on('connection', (socket) => {
       banKey,
       score: 0,
       answers: [],
+      questionSet: buildStudentQuestionSet(),
       status: 'active',
       connectionStatus: 'online',
       joinedAt: Date.now()
@@ -904,8 +1161,7 @@ io.on('connection', (socket) => {
     if (!player && token) {
       player = resumePlayer(socket, token);
     }
-    const qs = gameState.shuffledQuestions;
-    const question = qs ? qs[gameState.currentQuestionIndex] : null;
+    const question = getPlayerQuestion(player);
     if (!player || player.status !== 'active') return;
     if (gameState.phase !== 'question' || !question || question.id !== questionId) return;
     if (gameState.currentAnswers[socket.id]) return;

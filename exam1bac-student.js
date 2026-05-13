@@ -10,7 +10,7 @@ let studentClass = '';
 let playerId = '';
 let playerToken = '';
 let myScore = 0;
-let totalQuestions = 20;
+let totalQuestions = 50;
 let protectionArmed = false;
 let violationSent = false;
 let removed = false;
@@ -414,7 +414,7 @@ socket.on('game:results', (data) => {
     strip.textContent = '✗ Incorrect.';
   }
 
-  setText('correct-answer', data.correctAnswer);
+  setText('correct-answer', result?.correctAnswer || data.correctAnswer);
   showScreen('result');
 });
 

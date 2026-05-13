@@ -318,7 +318,7 @@ socket.on('game:results', (data) => {
 
   const strip = document.getElementById('correct-answer-strip');
   strip.className = 'result-strip correct';
-  strip.textContent = `✓ Correct answer: ${data.correctAnswer}`;
+  strip.textContent = data.correctAnswer || 'Students had randomized questions.';
 
   renderLeaderboard('results-leaderboard', data.leaderboard || []);
   showScreen('results');
