@@ -16,11 +16,11 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
-const READING_TIME = 300;
+const TOTAL_SCORE = 20;
 const STANDARD_TIME = 40;
-const POINTS_PER_QUESTION = 15 / 24; // 0.625 per question → max 15 pts
+const IMAGE_TIME = 35;
 
-const VALID_CLASSES = ['1BACSH2', '1BACSE3', '1BACSE4', 'TCSF3', 'TCSF4', 'TCSF5'];
+const VALID_CLASSES = ['TCSF3', 'TCSF4', 'TCSF5'];
 
 app.use(express.static(__dirname));
 
@@ -31,7 +31,7 @@ app.get('/student', (req, res) => res.redirect('/exam1bac-student.html'));
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
-    exam: '1bac',
+    exam: 'common-core',
     phase: gameState.phase,
     activePlayers: getActivePlayers().length,
     totalPlayers: Object.keys(gameState.players).length
@@ -53,7 +53,7 @@ app.get('/exam1bac/export-results', (req, res) => {
     const label = q.prompt.length > 55 ? q.prompt.slice(0, 52) + '...' : q.prompt;
     header.push(`Q${i + 1}: ${label}`);
   });
-  header.push('Score (/15)', 'Correct (/24)', 'Status');
+  header.push(`Score (/${TOTAL_SCORE})`, `Correct (/${qs.length})`, 'Status');
 
   const rows = [header];
 
@@ -125,182 +125,168 @@ app.post('/exam1bac/violation', express.text({ type: '*/*' }), (req, res) => {
   res.status(204).end();
 });
 
-// ─── Reading passage ─────────────────────────────────────────────────────────
-const readingPassage = [
-  'Many people around the world have special beliefs about numbers, colours, and festivals. Some people are superstitious and think that some numbers are lucky or unlucky. In different cultures, colours can also have special meanings.',
-  '',
-  'In Brazil, the Rio de Janeiro Carnival is a famous festival. It is flamboyant and raucous, with bright colours, music, dancing, and parades. Many people feel very happy during this celebration.',
-  '',
-  'Other festivals are quieter and more serious. For example, the Festival of the Dead is sombre and atmospheric. People remember loved ones who have passed away. This festival can be traced back to pagan times. Some festivals also represent renewal, a time of fresh beginnings.'
-].join('\n');
-
 // ─── Questions ───────────────────────────────────────────────────────────────
 const questionsRaw = [
-  // Section A – Reading Comprehension
+  // Section A - Jobs and occupations
   {
-    id: 'A1', section: 'Reading Comprehension',
-    prompt: 'According to the text, many people have special beliefs about:',
-    passage: readingPassage,
-    options: ['numbers, colours, and festivals', 'computers, phones, and cars'],
-    correctIndex: 0, timeLimit: READING_TIME
+    id: 'A1', section: 'Jobs and Occupations',
+    prompt: 'What is this job?',
+    image: '/exam1bac-assets/common-core/job-pilot.png',
+    imageAlt: 'A pilot',
+    options: ['pilot', 'postman', 'mechanic'],
+    correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
-    id: 'A2', section: 'Reading Comprehension',
-    prompt: 'The Rio de Janeiro Carnival is in:',
-    passage: readingPassage,
-    options: ['Brazil', 'France'],
-    correctIndex: 0, timeLimit: READING_TIME
+    id: 'A2', section: 'Jobs and Occupations',
+    prompt: 'What is this job?',
+    image: '/exam1bac-assets/common-core/job-dentist.png',
+    imageAlt: 'A dentist looking after teeth',
+    options: ['dentist', 'doctor', 'teacher'],
+    correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
-    id: 'A3', section: 'Reading Comprehension',
-    prompt: 'During Rio Carnival, people can see:',
-    passage: readingPassage,
-    options: ['music, dancing, and parades', 'snow, silence, and exams'],
-    correctIndex: 0, timeLimit: READING_TIME
+    id: 'A3', section: 'Jobs and Occupations',
+    prompt: 'What is this job?',
+    image: '/exam1bac-assets/common-core/job-carpenter.png',
+    imageAlt: 'A carpenter carrying wood',
+    options: ['carpenter', 'butcher', 'bus driver'],
+    correctIndex: 0, timeLimit: IMAGE_TIME
   },
   {
-    id: 'A4', section: 'Reading Comprehension',
-    prompt: 'The Festival of the Dead helps people remember:',
-    passage: readingPassage,
-    options: ['loved ones who passed away', 'people who won prizes'],
-    correctIndex: 0, timeLimit: READING_TIME
+    id: 'A4', section: 'Jobs and Occupations',
+    prompt: 'What is this job?',
+    image: '/exam1bac-assets/common-core/job-mechanic.png',
+    imageAlt: 'A mechanic with tools',
+    options: ['mechanic', 'painter', 'pilot'],
+    correctIndex: 0, timeLimit: IMAGE_TIME
   },
-  // Section B – Vocabulary
   {
-    id: 'B1', section: 'Vocabulary',
-    prompt: 'Superstitious means:',
-    options: ['having beliefs about luck or hidden forces', 'being very hungry'],
+    id: 'A5', section: 'Jobs and Occupations',
+    prompt: 'What is this job?',
+    image: '/exam1bac-assets/common-core/job-painter.png',
+    imageAlt: 'A painter holding a brush',
+    options: ['painter', 'carpenter', 'dentist'],
+    correctIndex: 0, timeLimit: IMAGE_TIME
+  },
+  {
+    id: 'A6', section: 'Jobs and Occupations',
+    prompt: 'A dentist __________ people\'s teeth.',
+    options: ['looks after', 'drives', 'writes'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'B2', section: 'Vocabulary',
-    prompt: 'Flamboyant means:',
-    options: ['colourful and exaggerated', 'very dangerous'],
+    id: 'A7', section: 'Jobs and Occupations',
+    prompt: 'A bus driver __________ a bus.',
+    options: ['drives', 'grows', 'arrests'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'B3', section: 'Vocabulary',
-    prompt: 'Raucous means:',
-    options: ['very noisy', 'very expensive'],
+    id: 'A8', section: 'Jobs and Occupations',
+    prompt: 'A police officer __________ criminals.',
+    options: ['arrests', 'writes', 'grows'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+
+  // Section B - Time prepositions
+  {
+    id: 'B1', section: 'Time Prepositions',
+    prompt: 'My birthday is __________ July.',
+    options: ['in', 'on', 'at'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'B4', section: 'Vocabulary',
-    prompt: 'Sombre means:',
-    options: ['serious and sad', 'happy and funny'],
+    id: 'B2', section: 'Time Prepositions',
+    prompt: 'The English class starts __________ 8 o\'clock.',
+    options: ['at', 'in', 'on'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'B5', section: 'Vocabulary',
-    prompt: 'Atmospheric means:',
-    options: ['having a special feeling', 'being very small'],
+    id: 'B3', section: 'Time Prepositions',
+    prompt: 'We do not study __________ Sundays.',
+    options: ['on', 'in', 'at'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+
+  // Section C - Adverbs of frequency
+  {
+    id: 'C1', section: 'Adverbs of Frequency',
+    prompt: 'Put "always" in the right place.',
+    options: [
+      'Do you always exercise on Saturdays?',
+      'Do always you exercise on Saturdays?',
+      'Always do you exercise on Saturdays?'
+    ],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'B6', section: 'Vocabulary',
-    prompt: 'Traced back means:',
-    options: ['has origins in the past', 'happens tomorrow'],
-    correctIndex: 0, timeLimit: STANDARD_TIME
-  },
-  // Section C – Emotions Vocabulary
-  {
-    id: 'C1', section: 'Emotions Vocabulary',
-    prompt: 'Choose the correct emotion.',
-    image: '/exam1bac-assets/emotion-enraged.png',
-    imageAlt: 'An angry facial expression',
-    options: ['enraged', 'bored'],
+    id: 'C2', section: 'Adverbs of Frequency',
+    prompt: 'Put "often" in the right place.',
+    options: [
+      'He often listens to the radio.',
+      'He listens often to the radio.',
+      'Often he listens to the radio.'
+    ],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'C2', section: 'Emotions Vocabulary',
-    prompt: 'Choose the correct emotion.',
-    image: '/exam1bac-assets/emotion-worried.png',
-    imageAlt: 'A worried facial expression',
-    options: ['hopeful', 'worried'],
-    correctIndex: 1, timeLimit: STANDARD_TIME
-  },
-  {
-    id: 'C3', section: 'Emotions Vocabulary',
-    prompt: 'Choose the correct emotion.',
-    image: '/exam1bac-assets/emotion-bored.png',
-    imageAlt: 'A bored facial expression',
-    options: ['bored', 'surprised'],
+    id: 'C3', section: 'Adverbs of Frequency',
+    prompt: 'Put "ever" in the right place.',
+    options: [
+      'Do they ever read books?',
+      'Ever do they read books?',
+      'Do ever they read books?'
+    ],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'C4', section: 'Emotions Vocabulary',
-    prompt: 'Choose the correct emotion.',
-    image: '/exam1bac-assets/emotion-ecstatic.png',
-    imageAlt: 'An ecstatic facial expression',
-    options: ['ecstatic', 'depressed'],
+    id: 'C4', section: 'Adverbs of Frequency',
+    prompt: 'Put "never" in the right place.',
+    options: [
+      'They never read books.',
+      'They read never books.',
+      'Never they read books.'
+    ],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+
+  // Section D - Some and any
+  {
+    id: 'D1', section: 'Some / Any',
+    prompt: 'We have lots of potatoes. Let\'s make __________ potato salad!',
+    options: ['some', 'any'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'C5', section: 'Emotions Vocabulary',
-    prompt: 'Choose the correct emotion.',
-    image: '/exam1bac-assets/emotion-surprised.png',
-    imageAlt: 'A surprised facial expression',
-    options: ['bored', 'surprised'],
-    correctIndex: 1, timeLimit: STANDARD_TIME
-  },
-  {
-    id: 'C6', section: 'Emotions Vocabulary',
-    prompt: 'Choose the correct emotion.',
-    image: '/exam1bac-assets/emotion-depressed.png',
-    imageAlt: 'A depressed facial expression',
-    options: ['ecstatic', 'depressed'],
-    correctIndex: 1, timeLimit: STANDARD_TIME
-  },
-  // Section D – Functions: Complaints and Requests
-  {
-    id: 'D1', section: 'Functions: Complaints and Requests',
-    prompt: '"I\'m sorry, but I\'ve got a problem."',
-    options: ['complaint', 'request'],
+    id: 'D2', section: 'Some / Any',
+    prompt: 'Do we have __________ mayonnaise?',
+    options: ['any', 'some'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'D2', section: 'Functions: Complaints and Requests',
-    prompt: '"I\'m afraid I\'ve got a complaint."',
-    options: ['complaint', 'request'],
+    id: 'D3', section: 'Some / Any',
+    prompt: 'I do not want __________ onions.',
+    options: ['any', 'some'],
+    correctIndex: 0, timeLimit: STANDARD_TIME
+  },
+
+  // Section E - Shopping, colors, materials and items
+  {
+    id: 'E1', section: 'Shopping Categories',
+    prompt: 'Which shop category do these items belong to?',
+    image: '/exam1bac-assets/common-core/shop-jewelry.png',
+    imageAlt: 'Watches, earrings, a necklace and a ring',
+    options: ['jewelry store', 'food store', 'furniture store'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   },
   {
-    id: 'D3', section: 'Functions: Complaints and Requests',
-    prompt: '"There\'s something wrong with the TV."',
-    options: ['complaint', 'request'],
-    correctIndex: 0, timeLimit: STANDARD_TIME
-  },
-  {
-    id: 'D4', section: 'Functions: Complaints and Requests',
-    prompt: '"Could you help me, please?"',
-    options: ['request', 'complaint'],
-    correctIndex: 0, timeLimit: STANDARD_TIME
-  },
-  {
-    id: 'D5', section: 'Functions: Complaints and Requests',
-    prompt: '"Could I speak to the manager, please?"',
-    options: ['request', 'complaint'],
-    correctIndex: 0, timeLimit: STANDARD_TIME
-  },
-  {
-    id: 'D6', section: 'Functions: Complaints and Requests',
-    prompt: '"I wonder if you could check for me."',
-    options: ['request', 'complaint'],
-    correctIndex: 0, timeLimit: STANDARD_TIME
-  },
-  {
-    id: 'D7', section: 'Functions: Complaints and Requests',
-    prompt: '"I wonder if I could have some more towels, please."',
-    options: ['request', 'complaint'],
-    correctIndex: 0, timeLimit: STANDARD_TIME
-  },
-  {
-    id: 'D8', section: 'Functions: Complaints and Requests',
-    prompt: '"Would you mind sending someone to look at it?"',
-    options: ['request', 'complaint'],
+    id: 'E2', section: 'Colors, Materials and Items',
+    prompt: 'The word "cotton" is a:',
+    options: ['material', 'color', 'shop'],
     correctIndex: 0, timeLimit: STANDARD_TIME
   }
 ];
+
+const POINTS_PER_QUESTION = TOTAL_SCORE / questionsRaw.length;
 
 const questions = questionsRaw.map((q, i) => ({
   ...q,
@@ -818,7 +804,7 @@ io.on('connection', (socket) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 server.listen(PORT, HOST, () => {
-  console.log(`1st Bac Exam Live → ${HOST}:${PORT}`);
+  console.log(`Common Core Quiz Live -> ${HOST}:${PORT}`);
   console.log('  Teacher: /teacher');
   console.log('  Student: /student');
 });

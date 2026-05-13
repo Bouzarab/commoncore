@@ -1,7 +1,7 @@
 {
-  "name": "law-quiz-1bac",
+  "name": "common-core-quiz",
   "version": "1.0.0",
-  "description": "Live law quiz platform for 1st Bac students",
+  "description": "Live English quiz platform for common core students",
   "main": "server-1bac.js",
   "scripts": {
     "start": "node server-1bac.js"

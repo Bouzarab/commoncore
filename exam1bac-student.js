@@ -10,9 +10,11 @@ let studentClass = '';
 let playerId = '';
 let playerToken = '';
 let myScore = 0;
+let totalQuestions = 20;
 let protectionArmed = false;
 let violationSent = false;
 let removed = false;
+const MAX_SCORE = 20;
 
 // ─── Screen management ────────────────────────────────────────────────────────
 const screens = {
@@ -47,10 +49,10 @@ function formatScore(raw) {
 
 function updateScore(score) {
   myScore = Math.round((Number(score) || 0) * 100) / 100;
-  const display = `${formatScore(myScore)} / 15`;
+  const display = `${formatScore(myScore)} / ${MAX_SCORE}`;
   setText('score-value', display);
   setText('result-score', display);
-  setText('removed-score', `${formatScore(myScore)} / 15`);
+  setText('removed-score', `${formatScore(myScore)} / ${MAX_SCORE}`);
 }
 
 // ─── Render question ──────────────────────────────────────────────────────────
@@ -75,7 +77,7 @@ function renderQuestion(question) {
     passage.classList.add('hidden');
   }
 
-  // Emotion image
+  // Question image
   const imageFrame = document.getElementById('question-image-frame');
   const image = document.getElementById('question-image');
   if (question.image) {
@@ -188,7 +190,7 @@ function renderLeaderboard(containerId, leaderboard) {
 
     const scoreEl = document.createElement('span');
     scoreEl.className = player.status === 'active' ? 'score-pill' : 'status-pill removed';
-    scoreEl.textContent = `${formatScore(player.score)} / 15`;
+    scoreEl.textContent = `${formatScore(player.score)} / ${MAX_SCORE}`;
 
     row.append(rankEl, nameWrap, scoreEl);
     container.appendChild(row);
@@ -303,12 +305,13 @@ socket.on('student:joinRejected', ({ message }) => {
   showError(message || 'Could not join. Please try again.');
 });
 
-socket.on('student:joined', ({ id, token, name, number, studentClass: cls, totalQuestions }) => {
+socket.on('student:joined', ({ id, token, name, number, studentClass: cls, totalQuestions: serverTotalQuestions }) => {
   playerId      = id;
   playerToken   = token;
   studentName   = name;
   studentNumber = number;
   studentClass  = cls;
+  totalQuestions = Number(serverTotalQuestions) || totalQuestions;
 
   updateScore(0);
 
@@ -379,10 +382,9 @@ socket.on('game:finished', ({ leaderboard }) => {
   const correctCount = leaderboard.find(p => p.id === playerId);
   setText('final-score', formatScore(myScore));
 
-  // Count correct from leaderboard (we don't have it directly, but score is reliable)
-  // Estimate: score / 0.625 ≈ correct answers
-  const estimatedCorrect = Math.round(myScore / (15 / 24));
-  setText('final-correct', `${estimatedCorrect} correct answers out of 24`);
+  // Count correct from leaderboard (we don't have it directly, but score is reliable).
+  const estimatedCorrect = Math.round((myScore / MAX_SCORE) * totalQuestions);
+  setText('final-correct', `${estimatedCorrect} correct answers out of ${totalQuestions}`);
 
   renderLeaderboard('final-leaderboard', leaderboard || []);
   showScreen('finished');

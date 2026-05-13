@@ -3,6 +3,7 @@ const socket = io();
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentTimeLimit = 40;
 let latestState = null;
+const MAX_SCORE = 20;
 
 // ─── Screen management ────────────────────────────────────────────────────────
 const screens = {
@@ -95,7 +96,7 @@ function renderPlayerList(containerId, players, mode) {
     const meta = document.createElement('span');
     meta.className = 'student-meta';
     const classNum = [player.studentClass, player.number ? `#${player.number}` : ''].filter(Boolean).join(' · ');
-    const scoreStr = `${formatScore(player.score)} / 15`;
+    const scoreStr = `${formatScore(player.score)} / ${MAX_SCORE}`;
     meta.textContent = player.status === 'active'
       ? `${classNum} · ${scoreStr}`
       : `${classNum} · ${scoreStr} — ${player.removalReason || 'removed'}`;
@@ -155,7 +156,7 @@ function renderLeaderboard(containerId, leaderboard) {
 
     const scoreEl = document.createElement('span');
     scoreEl.className = player.status === 'active' ? 'score-pill' : 'status-pill removed';
-    scoreEl.textContent = `${formatScore(player.score)} / 15`;
+    scoreEl.textContent = `${formatScore(player.score)} / ${MAX_SCORE}`;
 
     row.append(rankEl, nameWrap, scoreEl);
     container.appendChild(row);

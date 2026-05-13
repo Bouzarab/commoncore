@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Student — 1st Bac Exam</title>
+  <title>Student — Common Core Quiz</title>
   <link rel="stylesheet" href="/exam1bac.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
             <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
           </svg>
         </div>
-        <h2>1st Bac Exam Live</h2>
+        <h2>Common Core Quiz Live</h2>
         <p class="subtitle">Enter your information to join the quiz session.</p>
 
         <form id="join-form" autocomplete="off">
@@ -31,16 +31,13 @@
           <div class="form-group">
             <label class="form-label" for="student-number">Student Number</label>
             <input class="form-input" id="student-number" type="text" maxlength="20"
-              placeholder="e.g. 15" autocomplete="off">
+              placeholder="e.g. 12" autocomplete="off">
           </div>
 
           <div class="form-group">
             <label class="form-label" for="student-class">Class</label>
             <select class="form-select" id="student-class">
               <option value="">— Select your class —</option>
-              <option value="1BACSH2">1BACSH2</option>
-              <option value="1BACSE3">1BACSE3</option>
-              <option value="1BACSE4">1BACSE4</option>
               <option value="TCSF3">TCSF3</option>
               <option value="TCSF4">TCSF4</option>
               <option value="TCSF5">TCSF5</option>
@@ -74,13 +71,13 @@
     <section class="screen" id="screen-question">
       <div class="score-bar">
         <span class="score-bar-name" id="score-name">Student</span>
-        <span class="score-bar-value" id="score-value">0.00 / 15</span>
+        <span class="score-bar-value" id="score-value">0.00 / 20</span>
       </div>
 
       <div class="panel question-card">
         <div class="question-head">
           <div class="question-meta">
-            <span class="tag" id="question-number">Q1 / 24</span>
+            <span class="tag" id="question-number">Q1 / 20</span>
             <span class="tag blue" id="question-section">Section</span>
           </div>
           <div class="timer-wrap">
@@ -111,7 +108,7 @@
     <section class="screen" id="screen-result">
       <div class="score-bar">
         <span class="score-bar-name" id="result-name">Student</span>
-        <span class="score-bar-value" id="result-score">0.00 / 15</span>
+        <span class="score-bar-value" id="result-score">0.00 / 20</span>
       </div>
       <div class="panel" style="display:grid;gap:14px;">
         <div class="result-strip" id="result-strip">—</div>
@@ -140,7 +137,7 @@
           <div class="score-label">Your Final Score</div>
           <div>
             <span class="score-number" id="final-score">0.00</span>
-            <span class="score-max"> / 15</span>
+            <span class="score-max"> / 20</span>
           </div>
           <div style="margin-top:6px;font-size:0.85rem;color:var(--teal-dark);font-weight:600;" id="final-correct"></div>
         </div>
@@ -158,7 +155,7 @@
       <h2>Removed from Quiz</h2>
       <p id="removed-reason">You left the quiz page.</p>
       <p style="margin-top:12px;">Score at time of removal:</p>
-      <div class="removed-score" id="removed-score">0.00 / 15</div>
+      <div class="removed-score" id="removed-score">0.00 / 20</div>
     </div>
   </div>
 
