@@ -944,6 +944,81 @@ button.option.selected .option-letter {
   transition: width 0.4s ease;
 }
 
+/* ─── Teacher answer names ───────────────────────────────────────────────── */
+.toggle-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle-line input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--teal);
+}
+
+.answer-name-lists {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.answer-name-column {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--surface-soft);
+}
+
+.answer-name-column.answered {
+  border-color: var(--green-border);
+  background: var(--green-bg);
+}
+
+.answer-name-column.pending {
+  border-color: #fde68a;
+  background: var(--amber-bg);
+}
+
+.answer-list-title {
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.answer-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.answer-chip,
+.answer-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.answer-empty {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
 /* ─── Link / share box ────────────────────────────────────────────────────── */
 .link-box {
   display: flex;

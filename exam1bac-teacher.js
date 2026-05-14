@@ -3,6 +3,7 @@ const socket = io();
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentTimeLimit = 40;
 let latestState = null;
+let showAnswerNames = false;
 const MAX_SCORE = 20;
 
 // ─── Screen management ────────────────────────────────────────────────────────
@@ -47,6 +48,11 @@ function makeEmpty(msg) {
   p.style.cssText = 'padding:10px 0;font-size:0.88rem;';
   p.textContent = msg;
   return p;
+}
+
+function formatStudentLabel(player) {
+  const detail = [player.studentClass, player.number ? `#${player.number}` : ''].filter(Boolean).join(' · ');
+  return detail ? `${player.name} (${detail})` : player.name;
 }
 
 // ─── Student link ─────────────────────────────────────────────────────────────
@@ -171,6 +177,44 @@ function renderLeaderboard(containerId, leaderboard) {
   });
 }
 
+function renderAnswerNameGroup(containerId, students, emptyText) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!students.length) {
+    const empty = document.createElement('span');
+    empty.className = 'answer-empty';
+    empty.textContent = emptyText;
+    container.appendChild(empty);
+    return;
+  }
+
+  students.forEach(player => {
+    const chip = document.createElement('span');
+    chip.className = 'answer-chip';
+    chip.textContent = formatStudentLabel(player);
+    container.appendChild(chip);
+  });
+}
+
+function renderAnswerNameLists(players) {
+  const wrapper = document.getElementById('answer-name-lists');
+  if (!wrapper) return;
+
+  wrapper.classList.toggle('hidden', !showAnswerNames);
+  if (!showAnswerNames) return;
+
+  const activeStudents = Object.values(players)
+    .filter(p => p.status === 'active')
+    .sort((a, b) => (a.studentClass || '').localeCompare(b.studentClass || '') || a.name.localeCompare(b.name));
+  const answered = activeStudents.filter(p => p.hasAnsweredCurrent);
+  const unanswered = activeStudents.filter(p => !p.hasAnsweredCurrent);
+
+  renderAnswerNameGroup('answered-student-list', answered, 'No answers yet.');
+  renderAnswerNameGroup('unanswered-student-list', unanswered, 'Everyone answered.');
+}
+
 // ─── Question render ──────────────────────────────────────────────────────────
 function renderQuestion(question) {
   if (!question) return;
@@ -292,6 +336,7 @@ function applyTeacherState(state) {
   renderLeaderboard('results-leaderboard', state.leaderboard || []);
   renderLeaderboard('final-leaderboard', state.leaderboard || []);
   renderLeaderboard('teacher-dashboard-ranking', state.leaderboard || []);
+  renderAnswerNameLists(players);
 
   updateAnswerProgress(state.answerCount || 0, activeCount);
 
@@ -366,6 +411,11 @@ socket.on('game:reset', () => {
 // ─── Button bindings ──────────────────────────────────────────────────────────
 document.getElementById('start-btn').addEventListener('click', () => {
   socket.emit('teacher:start');
+});
+
+document.getElementById('answer-names-toggle').addEventListener('change', (event) => {
+  showAnswerNames = event.target.checked;
+  renderAnswerNameLists(latestState?.players || {});
 });
 
 document.getElementById('restart-btn').addEventListener('click', () => {

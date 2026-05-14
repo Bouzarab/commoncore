@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Teacher — Common Core Quiz</title>
-  <link rel="stylesheet" href="/exam1bac.css?v=20260513-2">
+  <link rel="stylesheet" href="/exam1bac.css?v=20260514-1">
 </head>
 <body>
   <main class="app-shell">
@@ -124,6 +124,22 @@
               <div class="progress-fill" id="progress-fill" style="width:0%"></div>
             </div>
 
+            <label class="toggle-line" for="answer-names-toggle">
+              <input type="checkbox" id="answer-names-toggle">
+              <span>Show who answered / not answered</span>
+            </label>
+
+            <div class="answer-name-lists hidden" id="answer-name-lists">
+              <div class="answer-name-column answered">
+                <div class="answer-list-title">Answered</div>
+                <div class="answer-chip-list" id="answered-student-list"></div>
+              </div>
+              <div class="answer-name-column pending">
+                <div class="answer-list-title">Not answered yet</div>
+                <div class="answer-chip-list" id="unanswered-student-list"></div>
+              </div>
+            </div>
+
             <div class="button-row">
               <button class="btn ghost" id="move-prev-btn">← Previous</button>
               <button class="btn primary" id="move-next-btn">Next question →</button>
@@ -232,6 +248,6 @@
   </main>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/exam1bac-teacher.js?v=20260513-2"></script>
+  <script src="/exam1bac-teacher.js?v=20260514-1"></script>
 </body>
 </html>

@@ -758,7 +758,9 @@ function getLeaderboard() {
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 }
 
-function publicPlayer(player) {
+function publicPlayer(player, slotIndex = gameState.currentQuestionIndex) {
+  const hasAnsweredCurrent = slotIndex >= 0 ? Boolean(findAnswer(player, slotIndex)) : false;
+
   return {
     id: player.id,
     name: player.name,
@@ -767,6 +769,7 @@ function publicPlayer(player) {
     score: Math.round(player.score * 100) / 100,
     status: player.status,
     connectionStatus: player.connectionStatus || 'online',
+    hasAnsweredCurrent,
     removalReason: player.removalReason || '',
     removalType: player.removalType || ''
   };
@@ -776,7 +779,7 @@ function getTeacherState() {
   const qi = gameState.currentQuestionIndex;
   const currentQuestion = qi >= 0 && qi < QUIZ_QUESTION_COUNT ? teacherSlotQuestion(qi) : null;
   const players = Object.fromEntries(
-    Object.entries(gameState.players).map(([id, p]) => [id, publicPlayer(p)])
+    Object.entries(gameState.players).map(([id, p]) => [id, publicPlayer(p, qi)])
   );
   return {
     phase: gameState.phase,
